@@ -52,7 +52,7 @@ export default function Home() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0A0A12]/80 backdrop-blur-xl">
         <div className="max-w-[1152px] mx-auto px-6 h-16 flex items-center justify-between">
           <span className="font-semibold">Gercep<span className="holo-text">AI</span></span>
-          <a href="#waitlist" className="text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium">Coba Gratis</a>
+          <div className="flex items-center gap-4"><a href="/login" className="text-sm text-[#8B8AA0]">Masuk</a><a href="/signup" className="text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium">Coba Gratis</a></div>
         </div>
       </nav>
 
