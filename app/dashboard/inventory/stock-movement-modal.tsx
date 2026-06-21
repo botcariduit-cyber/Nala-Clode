@@ -11,7 +11,7 @@ const reasonOptions = [
   { value: "lainnya", label: "Lainnya" },
 ];
 
-export default function StockMovementModal({ productId, userId, currentStock, price, cost }: { productId: string; userId: string; currentStock: number; price: number | null; cost: number | null }) {
+export default function StockMovementModal({ productId, userId, businessId, currentStock, price, cost, productName }: { productId: string; userId: string; businessId?: string; currentStock: number; price: number | null; cost: number | null; productName?: string }) {
   const router = useRouter();
   const supabase = createClient();
   const [open, setOpen] = useState(false);
@@ -47,6 +47,32 @@ export default function StockMovementModal({ productId, userId, currentStock, pr
       movement_date: date,
     });
     if (moveError) { alert("Gagal catat pergerakan: " + moveError.message); setLoading(false); return; }
+
+    if (type === "keluar" && reason === "terjual" && price) {
+      const { error: txError } = await supabase.from("transactions").insert({
+        user_id: userId,
+        business_id: businessId,
+        type: "pemasukan",
+        scope: "bisnis",
+        category: "Penjualan",
+        description: `Penjualan ${productName || "produk"} (${qty} pcs) - via Inventory`,
+        amount: price * qty,
+        transaction_date: date,
+      });
+      if (txError) { alert("Stok tersimpan, tapi gagal catat ke Keuangan Bisnis: " + txError.message); }
+    } else if (type === "keluar" && (reason === "retur" || reason === "rusak") && cost) {
+      const { error: txError } = await supabase.from("transactions").insert({
+        user_id: userId,
+        business_id: businessId,
+        type: "pengeluaran",
+        scope: "bisnis",
+        category: "Kerugian Stok",
+        description: `${reason === "retur" ? "Retur" : "Rusak/Hilang"} ${productName || "produk"} (${qty} pcs) - via Inventory`,
+        amount: cost * qty,
+        transaction_date: date,
+      });
+      if (txError) { alert("Stok tersimpan, tapi gagal catat ke Keuangan Bisnis: " + txError.message); }
+    }
 
     setLoading(false);
     setOpen(false);
@@ -93,6 +119,10 @@ export default function StockMovementModal({ productId, userId, currentStock, pr
               <div className={"rounded-lg px-3 py-2 text-sm font-mono " + (profitPreview >= 0 ? "bg-[#2DD4BF]/10 text-[#2DD4BF]" : "bg-[#EC4899]/10 text-[#EC4899]")}>
                 {profitPreview >= 0 ? "Untung" : "Rugi"} Rp{Math.abs(profitPreview).toLocaleString("id-ID")}
               </div>
+            )}
+
+            {type === "keluar" && (
+              <p className="text-[10px] text-[#8B8AA0] -mt-1">Otomatis kecatat juga di Keuangan Bisnis</p>
             )}
 
             <button type="submit" disabled={loading} className="py-2.5 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-semibold disabled:opacity-50 mt-1">

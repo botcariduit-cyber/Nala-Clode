@@ -79,7 +79,7 @@ export default function ProductList({ products, userId, businessId }: { products
                     <p className={"font-mono font-semibold text-sm " + (p.stock <= p.min_stock ? "text-[#EC4899]" : "text-[#F2F1F8]")}>{p.stock} pcs</p>
                     {p.stock <= p.min_stock && <p className="text-[10px] text-[#EC4899]">Stok mau habis</p>}
                   </div>
-                  <StockMovementModal productId={p.id} userId={userId} currentStock={p.stock} price={p.price} cost={p.cost} />
+                  <StockMovementModal productId={p.id} userId={userId} businessId={businessId} currentStock={p.stock} price={p.price} cost={p.cost} productName={p.name} />
                   <EditProductModal product={p} />
                   <DeleteTransactionButton id={p.id} table="products" />
                 </div>

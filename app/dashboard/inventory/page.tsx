@@ -39,7 +39,7 @@ export default async function InventoryPage() {
   ];
 
   return (
-    <div className="px-8 py-8 max-w-[1100px]">
+    <div className="px-8 py-8">
       <h1 className="text-2xl font-semibold mb-1">Inventory</h1>
       <p className="text-[#8B8AA0] mb-8">Daftar produk dan stok kamu.</p>
 

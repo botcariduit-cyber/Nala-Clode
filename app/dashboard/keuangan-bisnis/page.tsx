@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import TransactionForm from "../transaction-form";
 import DeleteTransactionButton from "../delete-transaction-button";
+import CashFlowChart from "../cash-flow-chart";
 
 export default async function KeuanganBisnisPage() {
   const supabase = await createClient();
@@ -25,11 +26,11 @@ export default async function KeuanganBisnisPage() {
   const balance = income - expense;
 
   return (
-    <div className="px-8 py-8 max-w-[1000px]">
+    <div className="px-8 py-8">
       <h1 className="text-2xl font-semibold mb-1">Keuangan Bisnis</h1>
       <p className="text-[#8B8AA0] mb-8">Penjualan, modal, operasional usaha kamu.</p>
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-10">
+      <div className="grid sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
           <p className="text-xs text-[#8B8AA0] mb-1">Saldo</p>
           <p className="text-xl font-mono font-semibold">Rp{balance.toLocaleString("id-ID")}</p>
@@ -44,6 +45,8 @@ export default async function KeuanganBisnisPage() {
         </div>
       </div>
 
+      <CashFlowChart transactions={(transactions as never) || []} />
+
       <div className="grid md:grid-cols-[320px_1fr] gap-6">
         <TransactionForm userId={user!.id} scope="bisnis" businessId={business?.id} />
 
@@ -55,7 +58,11 @@ export default async function KeuanganBisnisPage() {
                 <div key={t.id} className="flex items-center justify-between border-b border-white/5 pb-3 group">
                   <div>
                     <p className="text-sm font-medium">{t.description || t.category || "Transaksi"}</p>
-                    <p className="text-xs text-[#8B8AA0]">{t.category}</p>
+                    <p className="text-xs text-[#8B8AA0]">
+                      {t.category}
+                      <span className="mx-1.5">·</span>
+                      {new Date(t.transaction_date || t.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <p className={"font-mono text-sm font-medium " + (t.type === "pemasukan" ? "text-[#2DD4BF]" : "text-[#EC4899]")}>
