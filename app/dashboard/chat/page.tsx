@@ -22,7 +22,8 @@ export default function ChatPage() {
     if (!input.trim() || loading) return;
 
     const userMessage = input;
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    const newMessages = [...messages, { role: "user" as const, content: userMessage }];
+    setMessages(newMessages);
     setInput("");
     setLoading(true);
 
@@ -30,7 +31,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })) }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Maaf, ada error." }]);
