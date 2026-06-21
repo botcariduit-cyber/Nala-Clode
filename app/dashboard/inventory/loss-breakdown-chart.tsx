@@ -36,7 +36,7 @@ export default function LossBreakdownChart({ movements }: { movements: Movement[
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
             <XAxis type="number" tick={{ fill: "#8B8AA0", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}rb`} />
             <YAxis type="category" dataKey="label" tick={{ fill: "#8B8AA0", fontSize: 11 }} axisLine={false} tickLine={false} width={80} />
-            <Tooltip contentStyle={{ background: "#0A0A12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(value: number) => [`Rp${value.toLocaleString("id-ID")}`, "Rugi"]} />
+            <Tooltip contentStyle={{ background: "#0A0A12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(value: any) => [`Rp${Number(value).toLocaleString("id-ID")}`, "Rugi"]} />
             <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={22}>
               {data.map((d, i) => <Cell key={i} fill={d.color} />)}
             </Bar>

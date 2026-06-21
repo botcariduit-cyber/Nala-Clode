@@ -37,7 +37,7 @@ export default function TrendChart({ history }: { history: HistoryPoint[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis dataKey="date" tick={{ fill: "#8B8AA0", fontSize: 10 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "#8B8AA0", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}jt`} />
-            <Tooltip contentStyle={{ background: "#0A0A12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(value: number) => [`Rp${value.toLocaleString("id-ID")}`, "Nilai"]} />
+            <Tooltip contentStyle={{ background: "#0A0A12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(value: any) => [`Rp${Number(value).toLocaleString("id-ID")}`, "Nilai"]} />
             <Area type="monotone" dataKey="value" stroke={isUp ? "#2DD4BF" : "#EC4899"} strokeWidth={2} fill="url(#trendGradient)" />
           </AreaChart>
         </ResponsiveContainer>

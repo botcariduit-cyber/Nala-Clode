@@ -21,7 +21,7 @@ export default function InventoryCharts({ products }: { products: Product[] }) {
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2}>
                 {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
               </Pie>
-              <Tooltip contentStyle={{ background: "#0A0A12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(value: number) => [`Rp${value.toLocaleString("id-ID")}`, "Nilai"]} />
+              <Tooltip contentStyle={{ background: "#0A0A12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(value: any) => [`Rp${Number(value).toLocaleString("id-ID")}`, "Nilai"]} />
             </PieChart>
           </ResponsiveContainer>
         ) : <p className="text-xs text-[#8B8AA0] text-center py-16">Belum ada data harga produk.</p>}
