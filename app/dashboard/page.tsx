@@ -28,7 +28,7 @@ export default async function DashboardPage() {
       <div className="max-w-[1152px] mx-auto">
         <div className="flex items-center justify-between mb-10">
           <span className="font-semibold text-lg">Gercep<span className="holo-text">AI</span></span>
-          <div className="flex items-center gap-3"><a href="/dashboard/chat" className="text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium">Buka Gercep Chat</a><LogoutButton /></div>
+          <div className="flex items-center gap-3"><a href="/dashboard/inventory" className="text-sm px-4 py-2 rounded-lg border border-white/10 text-[#8B8AA0]">Inventory</a><a href="/dashboard/chat" className="text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium">Buka Gercep Chat</a><LogoutButton /></div>
         </div>
 
         <h1 className="text-2xl font-semibold mb-1">Halo, {name}</h1>
