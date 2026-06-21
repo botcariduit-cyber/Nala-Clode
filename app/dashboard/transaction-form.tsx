@@ -8,7 +8,7 @@ const categoriesByScope = {
   bisnis: ["Penjualan", "Modal", "Operasional", "Gaji Karyawan", "Marketing", "Sewa", "Lainnya"],
 };
 
-export default function TransactionForm({ userId, scope }: { userId: string; scope: "pribadi" | "bisnis" }) {
+export default function TransactionForm({ userId, scope, businessId }: { userId: string; scope: "pribadi" | "bisnis"; businessId?: string }) {
   const router = useRouter();
   const supabase = createClient();
   const [type, setType] = useState("pengeluaran");
@@ -22,6 +22,7 @@ export default function TransactionForm({ userId, scope }: { userId: string; sco
     setLoading(true);
     await supabase.from("transactions").insert({
       user_id: userId,
+      business_id: businessId,
       type,
       scope,
       amount: Number(amount),

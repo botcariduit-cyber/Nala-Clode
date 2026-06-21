@@ -46,6 +46,14 @@ export async function POST(req: Request) {
 
   const { messages: chatHistory } = await req.json();
 
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+  const businessId = business?.id;
+
   const { data: products } = await supabase
     .from("products")
     .select("name, stock, min_stock, price")
@@ -88,6 +96,7 @@ Kalau user cuma nanya atau ngobrol biasa, jawab singkat dan jelas.`,
       const input = block.input as { type: string; scope: string; amount: number; description?: string; category?: string };
       const { error } = await supabase.from("transactions").insert({
         user_id: user.id,
+        business_id: businessId,
         type: input.type,
         scope: input.scope,
         amount: input.amount,
@@ -123,6 +132,7 @@ Kalau user cuma nanya atau ngobrol biasa, jawab singkat dan jelas.`,
         const initialStock = input.set_to !== undefined ? input.set_to : Math.max(input.stock_change || 0, 0);
         const { error } = await supabase.from("products").insert({
           user_id: user.id,
+          business_id: businessId,
           name: input.name,
           stock: initialStock,
           price: input.price,

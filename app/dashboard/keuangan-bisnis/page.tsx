@@ -6,6 +6,13 @@ export default async function KeuanganBisnisPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("user_id", user!.id)
+    .limit(1)
+    .single();
+
   const { data: transactions } = await supabase
     .from("transactions")
     .select("*")
@@ -38,7 +45,7 @@ export default async function KeuanganBisnisPage() {
       </div>
 
       <div className="grid md:grid-cols-[320px_1fr] gap-6">
-        <TransactionForm userId={user!.id} scope="bisnis" />
+        <TransactionForm userId={user!.id} scope="bisnis" businessId={business?.id} />
 
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
           <h2 className="font-medium mb-4">Transaksi terbaru</h2>

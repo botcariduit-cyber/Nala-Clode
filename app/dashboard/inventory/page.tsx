@@ -1,70 +1,69 @@
 import { createClient } from "@/lib/supabase/server";
+import ProductForm from "./product-form";
+import ProductList from "./product-list";
+import InventoryCharts from "./inventory-charts";
+import TrendChart from "./trend-chart";
+import RecentMovements from "./recent-movements";
+import MovementsChart from "./movements-chart";
+import ProfitIndicator from "./profit-indicator";
+import LossBreakdownChart from "./loss-breakdown-chart";
+import { Package, AlertTriangle, Wallet, TrendingUp } from "lucide-react";
 
 export default async function InventoryPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: products } = await supabase
-    .from("products")
-    .select("*")
-    .order("name", { ascending: true });
+  const { data: business } = await supabase.from("businesses").select("id").eq("user_id", user!.id).limit(1).single();
+  const { data: products } = await supabase.from("products").select("*").order("name", { ascending: true });
+  const { data: movements } = await supabase.from("stock_movements").select("id, type, reason, quantity, note, profit_loss, created_at, products(name)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(8);
+  const { data: allMovements } = await supabase.from("stock_movements").select("profit_loss, reason").eq("user_id", user!.id);
 
+  const totalRealizedProfit = allMovements?.reduce((sum, m) => sum + Number(m.profit_loss || 0), 0) || 0;
   const totalProducts = products?.length || 0;
   const lowStockCount = products?.filter((p) => p.stock <= p.min_stock).length || 0;
   const totalValue = products?.reduce((sum, p) => sum + (p.price || 0) * p.stock, 0) || 0;
+  const avgPrice = totalProducts > 0 ? (products!.reduce((sum, p) => sum + (p.price || 0), 0) / totalProducts) : 0;
+
+  await supabase.from("inventory_history").upsert(
+    { user_id: user!.id, business_id: business?.id, snapshot_date: new Date().toISOString().split("T")[0], total_value: totalValue },
+    { onConflict: "user_id,snapshot_date" }
+  );
+
+  const { data: history } = await supabase.from("inventory_history").select("snapshot_date, total_value").eq("user_id", user!.id).order("snapshot_date", { ascending: true }).limit(30);
+
+  const kpis = [
+    { label: "Total produk", value: totalProducts, icon: Package, color: "#38BDF8" },
+    { label: "Stok mau habis", value: lowStockCount, icon: AlertTriangle, color: "#EC4899" },
+    { label: "Nilai inventory", value: `Rp${totalValue.toLocaleString("id-ID")}`, icon: Wallet, color: "#2DD4BF" },
+    { label: "Rata-rata harga", value: `Rp${Math.round(avgPrice).toLocaleString("id-ID")}`, icon: TrendingUp, color: "#8B5CF6" },
+  ];
 
   return (
-    <div className="px-8 py-8 max-w-[1000px]">
+    <div className="px-8 py-8 max-w-[1100px]">
       <h1 className="text-2xl font-semibold mb-1">Inventory</h1>
       <p className="text-[#8B8AA0] mb-8">Daftar produk dan stok kamu.</p>
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-10">
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-[#8B8AA0] mb-1">Total produk</p>
-          <p className="text-xl font-mono font-semibold">{totalProducts}</p>
-        </div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-[#8B8AA0] mb-1">Stok mau habis</p>
-          <p className="text-xl font-mono font-semibold text-[#EC4899]">{lowStockCount}</p>
-        </div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-[#8B8AA0] mb-1">Nilai inventory</p>
-          <p className="text-xl font-mono font-semibold text-[#2DD4BF]">Rp{totalValue.toLocaleString("id-ID")}</p>
-        </div>
+      <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+        {kpis.map((k) => (
+          <div key={k.label} className="relative bg-[#0F0F1A] border border-white/10 rounded-2xl p-5 overflow-hidden">
+            <div className="absolute w-20 h-20 rounded-full -top-6 -right-6" style={{ background: k.color, filter: "blur(40px)", opacity: 0.2 }} />
+            <k.icon size={18} style={{ color: k.color }} className="mb-3 relative" />
+            <p className="text-xs text-[#8B8AA0] mb-1 relative">{k.label}</p>
+            <p className="text-lg font-mono font-semibold relative">{k.value}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-          <h2 className="font-medium">Daftar Produk</h2>
-          <a href="/dashboard/chat" className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium">+ Tambah lewat Chat</a>
-        </div>
+      <TrendChart history={history || []} />
+      <ProfitIndicator totalProfit={totalRealizedProfit} totalAssetValue={totalValue} />
+      <LossBreakdownChart movements={(allMovements as never) || []} />
+      <InventoryCharts products={products || []} />
+      <MovementsChart movements={(movements as never) || []} />
+      <RecentMovements movements={(movements as never) || []} />
 
-        {products && products.length > 0 ? (
-          <div className="divide-y divide-white/5">
-            {products.map((p) => (
-              <div key={p.id} className="px-5 py-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-sm">{p.name}</p>
-                  <p className="text-xs text-[#8B8AA0]">
-                    {p.price ? `Jual Rp${Number(p.price).toLocaleString("id-ID")}` : "Harga belum diset"}
-                    {p.cost ? ` · Modal Rp${Number(p.cost).toLocaleString("id-ID")}` : ""}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className={"font-mono font-semibold text-sm " + (p.stock <= p.min_stock ? "text-[#EC4899]" : "text-[#F2F1F8]")}>
-                    {p.stock} pcs
-                  </p>
-                  {p.stock <= p.min_stock && (
-                    <p className="text-[10px] text-[#EC4899]">Stok mau habis</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="px-5 py-10 text-center text-sm text-[#8B8AA0]">
-            Belum ada produk. Tambah lewat Gercep Chat, misal: &quot;tambah stok sepatu 20 pcs&quot;
-          </div>
-        )}
+      <div className="grid md:grid-cols-[320px_1fr] gap-6">
+        <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} />
+        <ProductList products={products || []} userId={user!.id} businessId={business?.id} />
       </div>
     </div>
   );
