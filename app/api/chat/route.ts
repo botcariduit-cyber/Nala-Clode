@@ -11,11 +11,12 @@ const catatTransaksiTool = {
     type: "object" as const,
     properties: {
       type: { type: "string", enum: ["pemasukan", "pengeluaran"], description: "Jenis transaksi" },
+      scope: { type: "string", enum: ["pribadi", "bisnis"], description: "Apakah ini transaksi pribadi (gaji, belanja sendiri, tagihan rumah) atau bisnis (jualan, modal usaha, operasional toko). Default ke bisnis kalau nggak jelas dan user lagi ngomongin jualan/usaha." },
       amount: { type: "number", description: "Jumlah uang dalam Rupiah, contoh: 50rb jadi 50000" },
       description: { type: "string", description: "Deskripsi singkat, contoh: jual baju" },
       category: { type: "string", description: "Kategori, contoh: penjualan, modal, operasional" },
     },
-    required: ["type", "amount"],
+    required: ["type", "scope", "amount"],
   },
 };
 
@@ -60,6 +61,14 @@ export async function POST(req: Request) {
     system: `Kamu adalah Gercep AI, asisten bisnis buat UMKM Indonesia. Gaya bicara kamu tegas, singkat, langsung ke inti, kayak partner bisnis yang gercep, bukan asisten yang lembek atau basa-basi panjang. JANGAN pakai markdown (bintang, tanda bold) karena tampilan chat nggak support itu. JANGAN pakai emoji berlebihan, maksimal 1 emoji kalau perlu.
 
 Kalau user cerita soal transaksi (jualan, beli, pengeluaran, pemasukan), gunakan tool catat_transaksi.
+
+Aturan nentuin scope (pribadi vs bisnis):
+- PRIBADI: gaji, belanja pribadi, tagihan rumah, listrik rumah, makan sehari-hari, kebutuhan keluarga, cicilan pribadi
+- BISNIS: jualan produk, beli stok/bahan baku, modal usaha, operasional toko, gaji karyawan, sewa tempat usaha
+- Kalau ada kata "rumah", "pribadi", "sendiri", "keluarga" itu PRIBADI
+- Kalau ada kata "jual", "modal", "toko", "usaha", "stok" itu BISNIS
+- Kalau beneran ambigu dan nggak ada petunjuk jelas, TANYA dulu ke user, jangan asal nebak.
+
 Kalau user nyebut nambah/kurang stok atau produk baru, gunakan tool kelola_stok.
 Kalau user nanya soal stok yang ada, jawab langsung pakai data berikut, jangan pakai tool: ${productContext}
 Kalau user cuma nanya atau ngobrol biasa, jawab singkat dan jelas.`,
@@ -76,17 +85,18 @@ Kalau user cuma nanya atau ngobrol biasa, jawab singkat dan jelas.`,
     }
 
     if (block.type === "tool_use" && block.name === "catat_transaksi") {
-      const input = block.input as { type: string; amount: number; description?: string; category?: string };
+      const input = block.input as { type: string; scope: string; amount: number; description?: string; category?: string };
       const { error } = await supabase.from("transactions").insert({
         user_id: user.id,
         type: input.type,
+        scope: input.scope,
         amount: input.amount,
         description: input.description || "",
         category: input.category || "",
       });
       if (!error) {
         recordedTransaction = input;
-        replyText = `Sip, tercatat! ${input.type === "pemasukan" ? "Pemasukan" : "Pengeluaran"} ${input.description || ""} sebesar Rp${input.amount.toLocaleString("id-ID")}.`;
+        replyText = `Sip, tercatat di keuangan ${input.scope}! ${input.type === "pemasukan" ? "Pemasukan" : "Pengeluaran"} ${input.description || ""} sebesar Rp${input.amount.toLocaleString("id-ID")}.`;
       } else {
         replyText = "Ada error pas nyimpen transaksi. Coba lagi.";
       }

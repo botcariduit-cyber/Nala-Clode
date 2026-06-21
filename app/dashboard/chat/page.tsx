@@ -31,7 +31,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({ messages: newMessages.map((m) => ({ role: m.role, content: m.content })) }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Maaf, ada error." }]);
@@ -46,14 +46,12 @@ export default function ChatPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0A0A12] text-[#F2F1F8] flex flex-col">
-      <div className="border-b border-white/5 px-6 py-4 flex items-center justify-between">
-        <a href="/dashboard" className="text-sm text-[#8B8AA0]">&larr; Dashboard</a>
-        <span className="font-semibold">Gercep<span className="holo-text">AI</span> Chat</span>
-        <div className="w-20" />
+    <div className="flex flex-col h-screen">
+      <div className="border-b border-white/5 px-8 py-4">
+        <span className="font-semibold">Gercep Chat</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 max-w-[768px] w-full mx-auto">
+      <div className="flex-1 overflow-y-auto px-8 py-6 max-w-[768px] w-full mx-auto">
         <div className="flex flex-col gap-4">
           {messages.map((m, i) => (
             <div key={i} className={"flex " + (m.role === "user" ? "justify-end" : "justify-start")}>
@@ -75,7 +73,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSend} className="border-t border-white/5 px-6 py-4">
+      <form onSubmit={handleSend} className="border-t border-white/5 px-8 py-4">
         <div className="max-w-[768px] mx-auto flex gap-3">
           <input
             type="text"
@@ -89,6 +87,6 @@ export default function ChatPage() {
           </button>
         </div>
       </form>
-    </main>
+    </div>
   );
 }

@@ -3,13 +3,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function TransactionForm({ userId }: { userId: string }) {
+const categoriesByScope = {
+  pribadi: ["Gaji", "Belanja", "Tagihan", "Transportasi", "Kesehatan", "Hiburan", "Lainnya"],
+  bisnis: ["Penjualan", "Modal", "Operasional", "Gaji Karyawan", "Marketing", "Sewa", "Lainnya"],
+};
+
+export default function TransactionForm({ userId, scope }: { userId: string; scope: "pribadi" | "bisnis" }) {
   const router = useRouter();
   const supabase = createClient();
   const [type, setType] = useState("pengeluaran");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(categoriesByScope[scope][0]);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,6 +23,7 @@ export default function TransactionForm({ userId }: { userId: string }) {
     await supabase.from("transactions").insert({
       user_id: userId,
       type,
+      scope,
       amount: Number(amount),
       description,
       category,
@@ -25,7 +31,6 @@ export default function TransactionForm({ userId }: { userId: string }) {
     setLoading(false);
     setAmount("");
     setDescription("");
-    setCategory("");
     router.refresh();
   };
 
@@ -39,8 +44,13 @@ export default function TransactionForm({ userId }: { userId: string }) {
       </div>
 
       <input type="number" required placeholder="Jumlah (Rp)" value={amount} onChange={(e) => setAmount(e.target.value)} className="px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
-      <input type="text" placeholder="Deskripsi (misal: jual baju)" value={description} onChange={(e) => setDescription(e.target.value)} className="px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
-      <input type="text" placeholder="Kategori (misal: penjualan)" value={category} onChange={(e) => setCategory(e.target.value)} className="px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
+      <input type="text" placeholder="Deskripsi" value={description} onChange={(e) => setDescription(e.target.value)} className="px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
+
+      <select value={category} onChange={(e) => setCategory(e.target.value)} className="px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] focus:outline-none focus:border-[#2DD4BF]/50">
+        {categoriesByScope[scope].map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
 
       <button type="submit" disabled={loading} className="py-2.5 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-semibold disabled:opacity-50 mt-1">
         {loading ? "Menyimpan..." : "Simpan"}
