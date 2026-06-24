@@ -1,6 +1,6 @@
 "use client";
 import { Wallet, Store, MessageCircle, Package, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
-import LogoutButton from "./logout-button";
+import BusinessSwitcher from "./business-switcher";
 
 const activeModules = [
   { name: "Gercep Chat", href: "/dashboard/chat", icon: MessageCircle },
@@ -25,7 +25,14 @@ const comingSoonModules = [
   { name: "Multi Platform", icon: Smartphone },
 ];
 
-export default function Sidebar({ expanded, setExpanded }: { expanded: boolean; setExpanded: (v: boolean) => void }) {
+type Business = { id: string; name: string; type: string | null };
+
+export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness }: { 
+  expanded: boolean; 
+  setExpanded: (v: boolean) => void;
+  businesses: Business[];
+  activeBusiness: Business | null;
+}) {
   return (
     <aside
       onMouseEnter={() => setExpanded(true)}
@@ -68,8 +75,16 @@ export default function Sidebar({ expanded, setExpanded }: { expanded: boolean; 
         </div>
       </nav>
 
+      {expanded && (
+        <BusinessSwitcher businesses={businesses} activeBusiness={activeBusiness} />
+      )}
+
       <div className="px-3 py-4 border-t border-white/5 relative">
-        <LogoutButton />
+        <div className={"flex " + (expanded ? "justify-start px-2" : "justify-center")}>
+          <a href="/dashboard/onboarding" title="Logout" className="text-xs text-[#8B8AA0] hover:text-[#EC4899] transition-colors">
+            {expanded ? "Keluar" : "↩"}
+          </a>
+        </div>
       </div>
     </aside>
   );
