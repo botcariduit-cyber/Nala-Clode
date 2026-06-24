@@ -17,5 +17,5 @@ export async function switchBusiness(businessId: string) {
 export async function addNewBusiness() {
   const cookieStore = await cookies();
   cookieStore.delete("active_business_id");
-  redirect("/dashboard/onboarding");
+  redirect("/onboarding");
 }

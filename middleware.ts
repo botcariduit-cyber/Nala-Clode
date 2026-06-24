@@ -6,7 +6,7 @@ import type { NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const response = await updateSession(request);
 
-  if (request.nextUrl.pathname.startsWith("/dashboard") && !request.nextUrl.pathname.startsWith("/dashboard/onboarding")) {
+  if (request.nextUrl.pathname.startsWith("/dashboard") && !request.nextUrl.pathname.startsWith("/onboarding")) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
         .single();
 
       if (!business?.type || business.type === "retail" && business.name === "Bisnis Utama") {
-        return NextResponse.redirect(new URL("/dashboard/onboarding", request.url));
+        return NextResponse.redirect(new URL("/onboarding", request.url));
       }
     }
   }
