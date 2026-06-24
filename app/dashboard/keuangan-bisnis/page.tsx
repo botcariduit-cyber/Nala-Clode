@@ -2,10 +2,20 @@ import { createClient } from "@/lib/supabase/server";
 import TransactionForm from "../transaction-form";
 import DeleteTransactionButton from "../delete-transaction-button";
 import CashFlowChart from "../cash-flow-chart";
+import MonthYearFilter from "../month-year-filter";
+import { Suspense } from "react";
 
-export default async function KeuanganBisnisPage() {
+export default async function KeuanganBisnisPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const params = await searchParams;
+
+  const now = new Date();
+  const bulan = Number(params.bulan) || now.getMonth() + 1;
+  const tahun = Number(params.tahun) || now.getFullYear();
+
+  const startDate = `${tahun}-${String(bulan).padStart(2, "0")}-01`;
+  const endDate = new Date(tahun, bulan, 0).toISOString().split("T")[0];
 
   const { data: business } = await supabase
     .from("businesses")
@@ -14,48 +24,63 @@ export default async function KeuanganBisnisPage() {
     .limit(1)
     .single();
 
+  const { data: allTransactions } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("scope", "bisnis");
+
   const { data: transactions } = await supabase
     .from("transactions")
     .select("*")
     .eq("scope", "bisnis")
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .gte("transaction_date", startDate)
+    .lte("transaction_date", endDate)
+    .order("transaction_date", { ascending: false });
 
-  const income = transactions?.filter((t) => t.type === "pemasukan").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-  const expense = transactions?.filter((t) => t.type === "pengeluaran").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-  const balance = income - expense;
+  const totalIncome = allTransactions?.filter((t) => t.type === "pemasukan").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalExpense = allTransactions?.filter((t) => t.type === "pengeluaran").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalBalance = totalIncome - totalExpense;
+
+  const monthIncome = transactions?.filter((t) => t.type === "pemasukan").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const monthExpense = transactions?.filter((t) => t.type === "pengeluaran").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+
+  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
   return (
     <div className="px-8 py-8">
       <h1 className="text-2xl font-semibold mb-1">Keuangan Bisnis</h1>
-      <p className="text-[#8B8AA0] mb-8">Penjualan, modal, operasional usaha kamu.</p>
+      <p className="text-[#8B8AA0] mb-6">Penjualan, modal, operasional usaha kamu.</p>
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-[#8B8AA0] mb-1">Saldo</p>
-          <p className="text-xl font-mono font-semibold">Rp{balance.toLocaleString("id-ID")}</p>
+          <p className="text-xs text-[#8B8AA0] mb-1">Total Saldo</p>
+          <p className="text-xl font-mono font-semibold">Rp{totalBalance.toLocaleString("id-ID")}</p>
+          <p className="text-[10px] text-[#5A5B6A] mt-1">Semua waktu</p>
         </div>
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-[#8B8AA0] mb-1">Pemasukan</p>
-          <p className="text-xl font-mono font-semibold text-[#2DD4BF]">Rp{income.toLocaleString("id-ID")}</p>
+          <p className="text-xs text-[#8B8AA0] mb-1">Pemasukan {months[bulan - 1]}</p>
+          <p className="text-xl font-mono font-semibold text-[#2DD4BF]">Rp{monthIncome.toLocaleString("id-ID")}</p>
+          <p className="text-[10px] text-[#5A5B6A] mt-1">{months[bulan - 1]} {tahun}</p>
         </div>
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-[#8B8AA0] mb-1">Pengeluaran</p>
-          <p className="text-xl font-mono font-semibold text-[#EC4899]">Rp{expense.toLocaleString("id-ID")}</p>
+          <p className="text-xs text-[#8B8AA0] mb-1">Pengeluaran {months[bulan - 1]}</p>
+          <p className="text-xl font-mono font-semibold text-[#EC4899]">Rp{monthExpense.toLocaleString("id-ID")}</p>
+          <p className="text-[10px] text-[#5A5B6A] mt-1">{months[bulan - 1]} {tahun}</p>
         </div>
       </div>
+
+      <Suspense><MonthYearFilter /></Suspense>
 
       <CashFlowChart transactions={(transactions as never) || []} />
 
       <div className="grid md:grid-cols-[320px_1fr] gap-6">
         <TransactionForm userId={user!.id} scope="bisnis" businessId={business?.id} />
-
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
-          <h2 className="font-medium mb-4">Transaksi terbaru</h2>
+          <h2 className="font-medium mb-4">Transaksi {months[bulan - 1]} {tahun}</h2>
           <div className="flex flex-col gap-3">
             {transactions && transactions.length > 0 ? (
               transactions.map((t) => (
-                <div key={t.id} className="flex items-center justify-between border-b border-white/5 pb-3 group">
+                <div key={t.id} className="flex items-center justify-between border-b border-white/5 pb-3">
                   <div>
                     <p className="text-sm font-medium">{t.description || t.category || "Transaksi"}</p>
                     <p className="text-xs text-[#8B8AA0]">
@@ -73,7 +98,7 @@ export default async function KeuanganBisnisPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-[#8B8AA0]">Belum ada transaksi bisnis.</p>
+              <p className="text-sm text-[#8B8AA0]">Belum ada transaksi di {months[bulan - 1]} {tahun}.</p>
             )}
           </div>
         </div>

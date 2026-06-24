@@ -7,16 +7,40 @@ import RecentMovements from "./recent-movements";
 import MovementsChart from "./movements-chart";
 import ProfitIndicator from "./profit-indicator";
 import LossBreakdownChart from "./loss-breakdown-chart";
+import MonthYearFilter from "../month-year-filter";
 import { Package, AlertTriangle, Wallet, TrendingUp } from "lucide-react";
+import { Suspense } from "react";
 
-export default async function InventoryPage() {
+export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const params = await searchParams;
+
+  const now = new Date();
+  const bulan = Number(params.bulan) || now.getMonth() + 1;
+  const tahun = Number(params.tahun) || now.getFullYear();
+
+  const startDate = `${tahun}-${String(bulan).padStart(2, "0")}-01`;
+  const endDate = new Date(tahun, bulan, 0).toISOString().split("T")[0];
+
+  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
   const { data: business } = await supabase.from("businesses").select("id").eq("user_id", user!.id).limit(1).single();
   const { data: products } = await supabase.from("products").select("*").order("name", { ascending: true });
-  const { data: movements } = await supabase.from("stock_movements").select("id, type, reason, quantity, note, profit_loss, created_at, products(name)").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(8);
-  const { data: allMovements } = await supabase.from("stock_movements").select("profit_loss, reason").eq("user_id", user!.id);
+
+  const { data: movements } = await supabase
+    .from("stock_movements")
+    .select("id, type, reason, quantity, note, profit_loss, created_at, movement_date, products(name)")
+    .eq("user_id", user!.id)
+    .gte("movement_date", startDate)
+    .lte("movement_date", endDate)
+    .order("movement_date", { ascending: false })
+    .limit(20);
+
+  const { data: allMovements } = await supabase
+    .from("stock_movements")
+    .select("profit_loss, reason")
+    .eq("user_id", user!.id);
 
   const totalRealizedProfit = allMovements?.reduce((sum, m) => sum + Number(m.profit_loss || 0), 0) || 0;
   const totalProducts = products?.length || 0;
@@ -29,7 +53,12 @@ export default async function InventoryPage() {
     { onConflict: "user_id,snapshot_date" }
   );
 
-  const { data: history } = await supabase.from("inventory_history").select("snapshot_date, total_value").eq("user_id", user!.id).order("snapshot_date", { ascending: true }).limit(30);
+  const { data: history } = await supabase
+    .from("inventory_history")
+    .select("snapshot_date, total_value")
+    .eq("user_id", user!.id)
+    .order("snapshot_date", { ascending: true })
+    .limit(30);
 
   const kpis = [
     { label: "Total produk", value: totalProducts, icon: Package, color: "#38BDF8" },
@@ -54,17 +83,25 @@ export default async function InventoryPage() {
         ))}
       </div>
 
+      <div className="grid md:grid-cols-[320px_1fr] gap-6 mb-8">
+        <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} />
+        <ProductList products={products || []} userId={user!.id} businessId={business?.id} />
+      </div>
+
       <TrendChart history={history || []} />
       <ProfitIndicator totalProfit={totalRealizedProfit} totalAssetValue={totalValue} />
       <LossBreakdownChart movements={(allMovements as never) || []} />
       <InventoryCharts products={products || []} />
+
+      <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium">Riwayat Stok — {months[bulan - 1]} {tahun}</h3>
+          <Suspense><MonthYearFilter /></Suspense>
+        </div>
+      </div>
+
       <MovementsChart movements={(movements as never) || []} />
       <RecentMovements movements={(movements as never) || []} />
-
-      <div className="grid md:grid-cols-[320px_1fr] gap-6">
-        <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} />
-        <ProductList products={products || []} userId={user!.id} businessId={business?.id} />
-      </div>
     </div>
   );
 }
