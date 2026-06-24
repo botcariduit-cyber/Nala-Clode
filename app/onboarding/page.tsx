@@ -34,10 +34,34 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    await supabase
-      .from("businesses")
-      .update({ name: businessName.trim(), type: finalType })
-      .eq("user_id", user.id);
+    const params = new URLSearchParams(window.location.search);
+    const isNew = params.get("mode") === "new";
+
+    if (isNew) {
+      const { data: newBusiness } = await supabase
+        .from("businesses")
+        .insert({ user_id: user.id, name: businessName.trim(), type: finalType })
+        .select("id")
+        .single();
+      if (newBusiness?.id) {
+        document.cookie = `active_business_id=${newBusiness.id}; path=/; max-age=${60*60*24*30}`;
+      }
+    } else {
+      const { data: existing } = await supabase
+        .from("businesses")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+      await supabase
+        .from("businesses")
+        .update({ name: businessName.trim(), type: finalType })
+        .eq("id", existing?.id);
+      if (existing?.id) {
+        document.cookie = `active_business_id=${existing.id}; path=/; max-age=${60*60*24*30}`;
+      }
+    }
 
     setLoading(false);
     router.push("/dashboard/inventory");
