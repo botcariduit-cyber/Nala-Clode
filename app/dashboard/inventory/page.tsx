@@ -10,6 +10,7 @@ import LossBreakdownChart from "./loss-breakdown-chart";
 import MonthYearFilter from "../month-year-filter";
 import { Package, AlertTriangle, Wallet, TrendingUp } from "lucide-react";
 import { Suspense } from "react";
+import { getConfig } from "./business-config";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
@@ -25,7 +26,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
   const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-  const { data: business } = await supabase.from("businesses").select("id").eq("user_id", user!.id).limit(1).single();
+  const { data: business } = await supabase.from("businesses").select("id, type, name").eq("user_id", user!.id).limit(1).single();
+  const config = getConfig(business?.type);
+
   const { data: products } = await supabase.from("products").select("*").order("name", { ascending: true });
 
   const { data: movements } = await supabase
@@ -61,16 +64,19 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     .limit(30);
 
   const kpis = [
-    { label: "Total produk", value: totalProducts, icon: Package, color: "#38BDF8" },
-    { label: "Stok mau habis", value: lowStockCount, icon: AlertTriangle, color: "#EC4899" },
-    { label: "Nilai inventory", value: `Rp${totalValue.toLocaleString("id-ID")}`, icon: Wallet, color: "#2DD4BF" },
-    { label: "Rata-rata harga", value: `Rp${Math.round(avgPrice).toLocaleString("id-ID")}`, icon: TrendingUp, color: "#8B5CF6" },
+    { label: config.kpiLabel.total, value: totalProducts, icon: Package, color: "#38BDF8" },
+    { label: config.kpiLabel.lowStock, value: lowStockCount, icon: AlertTriangle, color: "#EC4899" },
+    { label: config.kpiLabel.nilai, value: `Rp${totalValue.toLocaleString("id-ID")}`, icon: Wallet, color: "#2DD4BF" },
+    { label: config.kpiLabel.rataHarga, value: `Rp${Math.round(avgPrice).toLocaleString("id-ID")}`, icon: TrendingUp, color: "#8B5CF6" },
   ];
 
   return (
     <div className="px-8 py-8">
-      <h1 className="text-2xl font-semibold mb-1">Inventory</h1>
-      <p className="text-[#8B8AA0] mb-8">Daftar produk dan stok kamu.</p>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-semibold">Inventory</h1>
+        {business?.name && <span className="text-xs text-[#8B8AA0] bg-white/5 px-3 py-1 rounded-full">{business.name}</span>}
+      </div>
+      <p className="text-[#8B8AA0] mb-8">{config.produkLabel} dan stok kamu.</p>
 
       <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
         {kpis.map((k) => (
@@ -84,8 +90,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       </div>
 
       <div className="grid md:grid-cols-[320px_1fr] gap-6 mb-8">
-        <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} />
-        <ProductList products={products || []} userId={user!.id} businessId={business?.id} />
+        <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} config={config} />
+        <ProductList products={products || []} userId={user!.id} businessId={business?.id} config={config} />
       </div>
 
       <TrendChart history={history || []} />
@@ -93,8 +99,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       <LossBreakdownChart movements={(allMovements as never) || []} />
       <InventoryCharts products={products || []} />
 
-      <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl px-5 pt-4 pb-2 mb-4">
+        <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Riwayat Stok — {months[bulan - 1]} {tahun}</h3>
           <Suspense><MonthYearFilter /></Suspense>
         </div>

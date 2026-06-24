@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Store, Bird, UtensilsCrossed, Factory, Briefcase, ShoppingBag, Truck, Heart, Leaf, Wrench } from "lucide-react";
+import { Store, Bird, UtensilsCrossed, Factory, Briefcase, ShoppingBag, Truck, Heart, Leaf, Wrench, PenLine } from "lucide-react";
 
 const businessTypes = [
   { type: "retail", label: "Toko Retail", desc: "Jualan produk fisik, fashion, elektronik, dll", icon: Store, color: "#38BDF8" },
@@ -15,17 +15,20 @@ const businessTypes = [
   { type: "kesehatan", label: "Kesehatan / Klinik", desc: "Apotek, klinik, produk kesehatan", icon: Heart, color: "#10B981" },
   { type: "pertanian", label: "Pertanian", desc: "Sawah, kebun, hasil bumi", icon: Leaf, color: "#84CC16" },
   { type: "bengkel", label: "Bengkel / Otomotif", desc: "Servis kendaraan, spare part", icon: Wrench, color: "#EF4444" },
+  { type: "custom", label: "Bisnis Lainnya", desc: "Ketik sendiri jenis bisnismu", icon: PenLine, color: "#A78BFA" },
 ];
 
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
   const [selectedType, setSelectedType] = useState("");
+  const [customType, setCustomType] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!selectedType || !businessName.trim()) return;
+    const finalType = selectedType === "custom" ? (customType.trim().toLowerCase().replace(/\s+/g, "_") || "custom") : selectedType;
+    if (!finalType || !businessName.trim()) return;
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,7 +36,7 @@ export default function OnboardingPage() {
 
     await supabase
       .from("businesses")
-      .update({ name: businessName.trim(), type: selectedType })
+      .update({ name: businessName.trim(), type: finalType })
       .eq("user_id", user.id);
 
     setLoading(false);
@@ -41,6 +44,7 @@ export default function OnboardingPage() {
   };
 
   const selected = businessTypes.find((b) => b.type === selectedType);
+  const isReady = selectedType && businessName.trim() && (selectedType !== "custom" || customType.trim());
 
   return (
     <div className="min-h-screen bg-[#0A0A12] text-[#F2F1F8] flex items-center justify-center px-4 py-12">
@@ -71,12 +75,25 @@ export default function OnboardingPage() {
           ))}
         </div>
 
+        {selectedType === "custom" && (
+          <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5 mb-4">
+            <label className="text-xs text-[#8B8AA0] mb-2 block">Jenis bisnis kamu</label>
+            <input
+              type="text"
+              placeholder="Contoh: Afiliator, Laundry, Konveksi, dll"
+              value={customType}
+              onChange={(e) => setCustomType(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50"
+            />
+          </div>
+        )}
+
         {selectedType && (
           <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5 mb-4">
             <label className="text-xs text-[#8B8AA0] mb-2 block">Nama bisnis kamu</label>
             <input
               type="text"
-              placeholder={`Contoh: ${selected?.label} Bu Sari`}
+              placeholder={selectedType === "custom" ? "Contoh: Toko Laundry Bu Ani" : `Contoh: ${selected?.label} Pak Budi`}
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               className="w-full px-4 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50"
@@ -86,7 +103,7 @@ export default function OnboardingPage() {
 
         <button
           onClick={handleSubmit}
-          disabled={!selectedType || !businessName.trim() || loading}
+          disabled={!isReady || loading}
           className="w-full py-3 rounded-xl bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-semibold disabled:opacity-30 transition-opacity"
         >
           {loading ? "Menyimpan..." : "Mulai Pakai Gercep AI →"}

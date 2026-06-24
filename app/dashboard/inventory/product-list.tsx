@@ -5,12 +5,13 @@ import DeleteTransactionButton from "../delete-transaction-button";
 import EditProductModal from "./edit-product-modal";
 import StockMovementModal from "./stock-movement-modal";
 import ImportExportButtons from "./import-export-buttons";
+import type { BusinessConfig } from "./business-config";
 
 type Product = { id: string; name: string; sku: string | null; stock: number; min_stock: number; price: number | null; cost: number | null; category: string | null; photo_url: string | null };
 
 const PAGE_SIZE = 8;
 
-export default function ProductList({ products, userId, businessId }: { products: Product[]; userId: string; businessId?: string }) {
+export default function ProductList({ products, userId, businessId, config }: { products: Product[]; userId: string; businessId?: string; config: BusinessConfig }) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua");
   const [page, setPage] = useState(1);
@@ -33,7 +34,7 @@ export default function ProductList({ products, userId, businessId }: { products
   return (
     <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl overflow-hidden h-fit">
       <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-medium flex-shrink-0">Daftar Produk</h2>
+        <h2 className="font-medium flex-shrink-0">Daftar {config.produkLabel}</h2>
         <div className="flex items-center gap-2">
           <ImportExportButtons products={products} userId={userId} businessId={businessId} />
           <a href="/dashboard/chat" className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium">+ Chat</a>
@@ -43,7 +44,7 @@ export default function ProductList({ products, userId, businessId }: { products
       <div className="px-5 py-3 border-b border-white/10 flex gap-2">
         <div className="flex-1 relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B8AA0]" />
-          <input type="text" placeholder="Cari nama atau SKU..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="w-full pl-8 pr-3 py-2 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] text-sm placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
+          <input type="text" placeholder={`Cari nama atau SKU...`} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="w-full pl-8 pr-3 py-2 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] text-sm placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
         </div>
         <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }} className="px-3 py-2 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] text-sm focus:outline-none focus:border-[#2DD4BF]/50">
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -76,10 +77,10 @@ export default function ProductList({ products, userId, businessId }: { products
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-right">
-                    <p className={"font-mono font-semibold text-sm " + (p.stock <= p.min_stock ? "text-[#EC4899]" : "text-[#F2F1F8]")}>{p.stock} pcs</p>
-                    {p.stock <= p.min_stock && <p className="text-[10px] text-[#EC4899]">Stok mau habis</p>}
+                    <p className={"font-mono font-semibold text-sm " + (p.stock <= p.min_stock ? "text-[#EC4899]" : "text-[#F2F1F8]")}>{p.stock} {config.satuanLabel}</p>
+                    {p.stock <= p.min_stock && <p className="text-[10px] text-[#EC4899]">{config.kpiLabel.lowStock}</p>}
                   </div>
-                  <StockMovementModal productId={p.id} userId={userId} businessId={businessId} currentStock={p.stock} price={p.price} cost={p.cost} productName={p.name} />
+                  <StockMovementModal productId={p.id} userId={userId} businessId={businessId} currentStock={p.stock} price={p.price} cost={p.cost} productName={p.name} config={config} />
                   <EditProductModal product={p} />
                   <DeleteTransactionButton id={p.id} table="products" />
                 </div>
@@ -91,18 +92,14 @@ export default function ProductList({ products, userId, businessId }: { products
             <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between">
               <span className="text-xs text-[#8B8AA0]">Halaman {currentPage} dari {totalPages}</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-white/10 text-[#8B8AA0] disabled:opacity-30">
-                  <ChevronLeft size={14} />
-                </button>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-white/10 text-[#8B8AA0] disabled:opacity-30">
-                  <ChevronRight size={14} />
-                </button>
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-white/10 text-[#8B8AA0] disabled:opacity-30"><ChevronLeft size={14} /></button>
+                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-white/10 text-[#8B8AA0] disabled:opacity-30"><ChevronRight size={14} /></button>
               </div>
             </div>
           )}
         </>
       ) : (
-        <div className="px-5 py-10 text-center text-sm text-[#8B8AA0]">{products.length === 0 ? "Belum ada produk. Tambah lewat form atau Gercep Chat." : "Nggak ada produk yang cocok."}</div>
+        <div className="px-5 py-10 text-center text-sm text-[#8B8AA0]">{products.length === 0 ? `Belum ada ${config.produkLabel.toLowerCase()}. Tambah lewat form atau Gercep Chat.` : "Nggak ada yang cocok."}</div>
       )}
     </div>
   );
