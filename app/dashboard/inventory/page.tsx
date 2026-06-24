@@ -26,15 +26,25 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
   const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-  const { data: business } = await supabase.from("businesses").select("id, type, name").eq("user_id", user!.id).limit(1).single();
+  const cookieStore = await (await import("next/headers")).cookies();
+  const activeBusinessId = cookieStore.get("active_business_id")?.value;
+
+  const { data: businessData } = await supabase
+    .from("businesses")
+    .select("id, type, name")
+    .eq("user_id", user!.id)
+    .order("created_at", { ascending: true });
+
+  const business = businessData?.find((b) => b.id === activeBusinessId) || businessData?.[0] || null;
   const config = getConfig(business?.type);
 
-  const { data: products } = await supabase.from("products").select("*").order("name", { ascending: true });
+  const { data: products } = await supabase.from("products").select("*").eq("business_id", business?.id || "").order("name", { ascending: true });
 
   const { data: movements } = await supabase
     .from("stock_movements")
     .select("id, type, reason, quantity, note, profit_loss, created_at, movement_date, products(name)")
     .eq("user_id", user!.id)
+    .eq("product_id", "dummy")
     .gte("movement_date", startDate)
     .lte("movement_date", endDate)
     .order("movement_date", { ascending: false })
