@@ -47,7 +47,7 @@ export default async function KeuanganPribadiPage({ searchParams }: { searchPara
   const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-4 sm:px-8 py-4 sm:py-8">
       <h1 className="text-2xl font-semibold mb-1">Keuangan Pribadi</h1>
       <p className="text-[#8B8AA0] mb-6">Gaji, belanja, dan tagihan pribadi kamu.</p>
 
@@ -73,7 +73,7 @@ export default async function KeuanganPribadiPage({ searchParams }: { searchPara
 
       <CashFlowChart transactions={(transactions as never) || []} />
 
-      <div className="grid md:grid-cols-[320px_1fr] gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6">
         <TransactionForm userId={user!.id} scope="pribadi" businessId={business?.id} />
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
           <h2 className="font-medium mb-4">Transaksi {months[bulan - 1]} {tahun}</h2>

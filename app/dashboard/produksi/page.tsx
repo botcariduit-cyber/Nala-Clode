@@ -46,14 +46,14 @@ export default async function ProduksiPage() {
     .limit(10);
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-4 sm:px-8 py-4 sm:py-8">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-semibold">Produksi</h1>
         {business?.name && <span className="text-xs text-[#8B8AA0] bg-white/5 px-3 py-1 rounded-full">{business.name}</span>}
       </div>
       <p className="text-[#8B8AA0] mb-8">Kelola resep, produksi, dan hitung modal otomatis.</p>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
           <h2 className="font-medium mb-1">Cara pakai</h2>
           <ol className="text-sm text-[#8B8AA0] flex flex-col gap-2 mt-3">

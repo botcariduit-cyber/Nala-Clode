@@ -47,11 +47,11 @@ export default async function KeuanganBisnisPage({ searchParams }: { searchParam
   const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-4 sm:px-8 py-4 sm:py-8">
       <h1 className="text-2xl font-semibold mb-1">Keuangan Bisnis</h1>
       <p className="text-[#8B8AA0] mb-6">Penjualan, modal, operasional usaha kamu.</p>
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
           <p className="text-xs text-[#8B8AA0] mb-1">Total Saldo</p>
           <p className="text-xl font-mono font-semibold">Rp{totalBalance.toLocaleString("id-ID")}</p>
@@ -73,7 +73,7 @@ export default async function KeuanganBisnisPage({ searchParams }: { searchParam
 
       <CashFlowChart transactions={(transactions as never) || []} />
 
-      <div className="grid md:grid-cols-[320px_1fr] gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6">
         <TransactionForm userId={user!.id} scope="bisnis" businessId={business?.id} />
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
           <h2 className="font-medium mb-4">Transaksi {months[bulan - 1]} {tahun}</h2>

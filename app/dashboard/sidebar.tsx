@@ -28,11 +28,12 @@ const comingSoonModules = [
 
 type Business = { id: string; name: string; type: string | null };
 
-export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness }: { 
+export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness, onNavigate }: { 
   expanded: boolean; 
   setExpanded: (v: boolean) => void;
   businesses: Business[];
   activeBusiness: Business | null;
+  onNavigate?: () => void;
 }) {
   return (
     <aside
@@ -58,7 +59,7 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
         {expanded && <p className="text-[10px] text-[#2DD4BF] tracking-wide px-2 mb-2 font-medium whitespace-nowrap">MODUL AKTIF</p>}
         <div className="flex flex-col gap-1 mb-6">
           {activeModules.map((m) => (
-            <a key={m.href} href={m.href} title={m.name} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F2F1F8] hover:bg-white/5 transition-colors whitespace-nowrap " + (expanded ? "" : "justify-center")}>
+            <a key={m.href} href={m.href} title={m.name} onClick={() => onNavigate?.()} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F2F1F8] hover:bg-white/5 transition-colors whitespace-nowrap " + (expanded ? "" : "justify-center")}>
               <m.icon size={16} className="text-[#8B8AA0] flex-shrink-0" />
               {expanded && m.name}
             </a>
