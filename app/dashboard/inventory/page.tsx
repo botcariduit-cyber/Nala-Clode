@@ -100,10 +100,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 mb-8">
-        <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} config={config} />
-        <ProductList products={products || []} userId={user!.id} businessId={business?.id} config={config} />
-      </div>
+      {business?.type === "ternak" ? (
+        <div className="mb-8">
+          <LivestockInventory products={products || []} userId={user!.id} businessId={business?.id} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 mb-8">
+          <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} config={config} />
+          <ProductList products={products || []} userId={user!.id} businessId={business?.id} config={config} />
+        </div>
+      )}
 
       <TrendChart history={history || []} />
       <ProfitIndicator totalProfit={totalRealizedProfit} totalAssetValue={totalValue} />
