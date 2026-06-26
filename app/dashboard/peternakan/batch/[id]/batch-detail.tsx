@@ -75,6 +75,13 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
     if (jenis !== "mortalitas" && total <= 0 && jenis !== "panen") return;
     setLoading(true);
 
+    const cookies = document.cookie.split(";").reduce((acc: Record<string, string>, c) => {
+      const [k, v] = c.trim().split("=");
+      acc[k] = v;
+      return acc;
+    }, {});
+    const businessId = cookies["active_business_id"];
+
     const payload = {
       batch_id: batch.id, user_id: userId, tanggal, jenis_transaksi: jenis,
       nama_item: namaItem || null, qty: qty ? Number(qty) : null,
@@ -86,6 +93,43 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
       await supabase.from("farm_transactions").update(payload).eq("id", editingId);
     } else {
       await supabase.from("farm_transactions").insert(payload);
+    }
+
+    // SYNC KE INVENTORY
+    const qtyNum = Number(qty) || 0;
+    const hargaNum = Number(harga) || 0;
+
+    if (jenis === "bibit" && qtyNum > 0) {
+      const { data: existing } = await supabase.from("products").select("id, stock").eq("name", batch.jenis_ternak).eq("business_id", businessId).maybeSingle();
+      if (existing) {
+        await supabase.from("products").update({ stock: existing.stock + qtyNum, cost: hargaNum || existing.stock }).eq("id", existing.id);
+      } else {
+        await supabase.from("products").insert({ user_id: userId, business_id: businessId, name: batch.jenis_ternak, category: batch.jenis_ternak, stock: qtyNum, min_stock: 10, cost: hargaNum || null });
+      }
+    }
+
+    if ((jenis === "pakan" || jenis === "obat" || jenis === "vitamin") && namaItem && qtyNum > 0) {
+      const cat = jenis === "pakan" ? "Pakan" : jenis === "obat" ? "Obat" : "Vitamin";
+      const { data: existing } = await supabase.from("products").select("id, stock").eq("name", namaItem).eq("business_id", businessId).maybeSingle();
+      if (existing) {
+        await supabase.from("products").update({ stock: existing.stock + qtyNum, cost: hargaNum || null }).eq("id", existing.id);
+      } else {
+        await supabase.from("products").insert({ user_id: userId, business_id: businessId, name: namaItem, category: cat, stock: qtyNum, min_stock: 5, cost: hargaNum || null, satuan: satuan || null });
+      }
+    }
+
+    if (jenis === "mortalitas" && qtyNum > 0) {
+      const { data: existing } = await supabase.from("products").select("id, stock").eq("name", batch.jenis_ternak).eq("business_id", businessId).maybeSingle();
+      if (existing) {
+        await supabase.from("products").update({ stock: Math.max(0, existing.stock - qtyNum) }).eq("id", existing.id);
+      }
+    }
+
+    if (jenis === "panen" && qtyNum > 0) {
+      const { data: existing } = await supabase.from("products").select("id, stock").eq("name", batch.jenis_ternak).eq("business_id", businessId).maybeSingle();
+      if (existing) {
+        await supabase.from("products").update({ stock: Math.max(0, existing.stock - qtyNum), price: hargaNum || null }).eq("id", existing.id);
+      }
     }
 
     setLoading(false);
