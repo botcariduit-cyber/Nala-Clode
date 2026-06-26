@@ -4,6 +4,7 @@ import DeleteTransactionButton from "../delete-transaction-button";
 import CashFlowChart from "../cash-flow-chart";
 import MonthYearFilter from "../month-year-filter";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 
 export default async function KeuanganBisnisPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
@@ -17,12 +18,10 @@ export default async function KeuanganBisnisPage({ searchParams }: { searchParam
   const startDate = `${tahun}-${String(bulan).padStart(2, "0")}-01`;
   const endDate = new Date(tahun, bulan, 0).toISOString().split("T")[0];
 
-  const { data: business } = await supabase
-    .from("businesses")
-    .select("id")
-    .eq("user_id", user!.id)
-    .limit(1)
-    .single();
+  const cookieStore = await cookies();
+  const activeBusinessId = cookieStore.get("active_business_id")?.value;
+  const { data: businessData } = await supabase.from("businesses").select("id, name").eq("user_id", user!.id).order("created_at", { ascending: true });
+  const business = businessData?.find((b) => b.id === activeBusinessId) || businessData?.[0] || null;
 
   const { data: allTransactions } = await supabase
     .from("transactions")
