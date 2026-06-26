@@ -1,5 +1,5 @@
 "use client";
-import { Wallet, Store, MessageCircle, Package, Factory, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
+import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
 import BusinessSwitcher from "./business-switcher";
 
 const activeModules = [
@@ -8,6 +8,7 @@ const activeModules = [
   { name: "Keuangan Bisnis", href: "/dashboard/keuangan-bisnis", icon: Store },
   { name: "Inventory", href: "/dashboard/inventory", icon: Package },
   { name: "Produksi", href: "/dashboard/produksi", icon: Factory },
+  { name: "Manajemen Ternak", href: "/dashboard/peternakan", icon: Bird },
 ];
 
 const comingSoonModules = [
