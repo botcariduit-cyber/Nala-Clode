@@ -119,7 +119,7 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
 
   const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50 text-sm";
 
-  const FormBibit = () => (
+  const renderFormBibit = () => (
     <div className="bg-[#0A0A12] border border-[#38BDF8]/20 rounded-xl p-4 mb-4">
       <p className="text-xs font-medium text-[#38BDF8] mb-3">{editingId ? "Edit" : "Tambah"} Bibit</p>
       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -138,7 +138,7 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
     </div>
   );
 
-  const FormPakanObat = ({ jenis }: { jenis: string }) => {
+  const renderFormPakanObat = (jenis: string) => {
     const color = JENIS_COLORS[jenis];
     const satuanDefault = jenis === "pakan" ? "kg" : "pcs";
     return (
@@ -166,7 +166,7 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
     );
   };
 
-  const FormOperasional = () => (
+  const renderFormOperasional = () => (
     <div className="bg-[#0A0A12] border border-[#6366F1]/20 rounded-xl p-4 mb-4">
       <p className="text-xs font-medium text-[#6366F1] mb-3">{editingId ? "Edit" : "Tambah"} Biaya Operasional</p>
       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -191,7 +191,7 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
     </div>
   );
 
-  const FormMortalitas = () => (
+  const renderFormMortalitas = () => (
     <div className="bg-[#0A0A12] border border-[#EC4899]/20 rounded-xl p-4 mb-4">
       <p className="text-xs font-medium text-[#EC4899] mb-3">{editingId ? "Edit" : "Catat"} Mortalitas</p>
       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -206,7 +206,7 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
     </div>
   );
 
-  const FormPanen = () => (
+  const renderFormPanen = () => (
     <div className="bg-[#0A0A12] border border-[#2DD4BF]/20 rounded-xl p-4 mb-4">
       <p className="text-xs font-medium text-[#2DD4BF] mb-3">{editingId ? "Edit" : "Catat"} Panen</p>
       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -318,13 +318,13 @@ export default function BatchDetail({ batch, transactions, userId }: { batch: Ba
       )}
 
       {/* FORMS */}
-      {activeForm === "bibit" && <FormBibit />}
-      {activeForm === "pakan" && <FormPakanObat jenis="pakan" />}
-      {activeForm === "obat" && <FormPakanObat jenis="obat" />}
-      {activeForm === "vitamin" && <FormPakanObat jenis="vitamin" />}
-      {activeForm === "operasional" && <FormOperasional />}
-      {activeForm === "mortalitas" && <FormMortalitas />}
-      {activeForm === "panen" && <FormPanen />}
+      {activeForm === "bibit" && renderFormBibit()}
+      {activeForm === "pakan" && renderFormPakanObat("pakan")}
+      {activeForm === "obat" && renderFormPakanObat("obat")}
+      {activeForm === "vitamin" && renderFormPakanObat("vitamin")}
+      {activeForm === "operasional" && renderFormOperasional()}
+      {activeForm === "mortalitas" && renderFormMortalitas()}
+      {activeForm === "panen" && renderFormPanen()}
 
       {/* TIMELINE */}
       <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-5">
