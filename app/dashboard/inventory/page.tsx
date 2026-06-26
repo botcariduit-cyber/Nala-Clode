@@ -11,6 +11,7 @@ import MonthYearFilter from "../month-year-filter";
 import { Package, AlertTriangle, Wallet, TrendingUp } from "lucide-react";
 import { Suspense } from "react";
 import { getConfig } from "./business-config";
+import LivestockInventory from "./livestock-inventory";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
