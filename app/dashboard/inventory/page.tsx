@@ -40,6 +40,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const config = getConfig(business?.type);
 
   const { data: products } = await supabase.from("products").select("*").eq("business_id", business?.id || "").order("name", { ascending: true });
+  console.log("DEBUG inventory:", { userId: user?.id, activeBusinessId, businessId: business?.id, productCount: products?.length });
 
   const { data: movements } = await supabase
     .from("stock_movements")
