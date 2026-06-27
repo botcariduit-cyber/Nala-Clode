@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ChevronDown, Plus, Check, Store, Bird, UtensilsCrossed, Factory, Briefcase, ShoppingBag, Truck, Heart, Leaf, Wrench, Building2 } from "lucide-react";
-import { switchBusiness, addNewBusiness } from "../actions/business";
+import { switchBusiness, addNewBusiness, deleteBusiness } from "../actions/business";
 
 type Business = { id: string; name: string; type: string | null };
 
@@ -34,6 +34,7 @@ const typeColor: Record<string, string> = {
 export default function BusinessSwitcher({ businesses, activeBusiness }: { businesses: Business[]; activeBusiness: Business | null }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const Icon = typeIcon[activeBusiness?.type || ""] || Building2;
   const color = typeColor[activeBusiness?.type || ""] || "#8B8AA0";
@@ -67,25 +68,41 @@ export default function BusinessSwitcher({ businesses, activeBusiness }: { busin
                 const bColor = typeColor[b.type || ""] || "#8B8AA0";
                 const isActive = b.id === activeBusiness?.id;
                 return (
-                  <button
-                    key={b.id}
-                    disabled={loading === b.id}
-                    onClick={async () => {
-                      setLoading(b.id);
-                      setOpen(false);
-                      await switchBusiness(b.id);
-                    }}
-                    className={"w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors " + (isActive ? "bg-white/5" : "")}
-                  >
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${bColor}25` }}>
-                      <BIcon size={13} style={{ color: bColor }} />
-                    </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className="text-xs font-medium truncate">{b.name}</p>
-                      <p className="text-[10px] text-[#8B8AA0] capitalize">{b.type || "—"}</p>
-                    </div>
-                    {isActive && <Check size={13} className="text-[#2DD4BF] flex-shrink-0" />}
-                  </button>
+                  <div key={b.id} className={"flex items-center gap-1 hover:bg-white/5 transition-colors " + (isActive ? "bg-white/5" : "")}>
+                    <button
+                      disabled={loading === b.id}
+                      onClick={async () => {
+                        setLoading(b.id);
+                        setOpen(false);
+                        await switchBusiness(b.id);
+                      }}
+                      className="flex-1 flex items-center gap-3 px-3 py-2.5"
+                    >
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${bColor}25` }}>
+                        <BIcon size={13} style={{ color: bColor }} />
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-xs font-medium truncate">{b.name}</p>
+                        <p className="text-[10px] text-[#8B8AA0] capitalize">{b.type || "—"}</p>
+                      </div>
+                      {isActive && <Check size={13} className="text-[#2DD4BF] flex-shrink-0" />}
+                    </button>
+                    {!isActive && (
+                      <button
+                        disabled={deleting === b.id}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!confirm(`Hapus bisnis "${b.name}"? Semua produk akan ikut terhapus.`)) return;
+                          setDeleting(b.id);
+                          await deleteBusiness(b.id);
+                        }}
+                        className="pr-3 text-[#8B8AA0] hover:text-[#EC4899] transition-colors"
+                        title="Hapus bisnis"
+                      >
+                        {deleting === b.id ? "..." : "✕"}
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
