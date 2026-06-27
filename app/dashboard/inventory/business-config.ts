@@ -71,7 +71,7 @@ export const businessConfig: Record<string, BusinessConfig> = {
       { value: "retur", label: "Retur" },
       { value: "lainnya", label: "Lainnya" },
     ],
-    kategoriDefault: ["Bahan Baku", "Produk Jadi", "Kemasan", "Alat", "Tepung", "Gula", "Mentega", "Lainnya"],
+    kategoriDefault: ["Bahan Baku", "Bahan Pendukung", "Kemasan", "Produk Jadi", "Alat", "Tepung", "Gula", "Mentega", "Lainnya"],
     kpiLabel: { total: "Total item", lowStock: "Bahan mau habis", nilai: "Nilai stok", rataHarga: "Rata-rata harga" },
   },
   jasa: {
