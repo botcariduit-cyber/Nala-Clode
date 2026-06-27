@@ -21,16 +21,18 @@ export default function BatchBaruPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    const cookies = document.cookie.split(";").reduce((acc: Record<string, string>, c) => {
-      const [k, v] = c.trim().split("=");
-      acc[k] = v;
-      return acc;
-    }, {});
-    const businessId = cookies["active_business_id"];
+    const { data: businesses } = await supabase.from("businesses").select("id").eq("user_id", user.id).eq("type", "ternak").limit(1).single();
+    const businessId = businesses?.id;
+
+    if (!businessId) {
+      alert("Tidak ada bisnis ternak ditemukan. Buat bisnis ternak dulu.");
+      setLoading(false);
+      return;
+    }
 
     const { data: batch, error } = await supabase.from("farm_batches").insert({
       user_id: user.id,
-      business_id: businessId || null,
+      business_id: businessId,
       nama_batch: namaBatch,
       jenis_ternak: jenisTernak,
       tanggal_mulai: tanggalMulai,

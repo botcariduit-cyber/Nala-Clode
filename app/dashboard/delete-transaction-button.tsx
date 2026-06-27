@@ -9,6 +9,14 @@ export default function DeleteTransactionButton({ id, table = "transactions" }: 
 
   const handleDelete = async () => {
     if (!confirm("Yakin mau hapus ini?")) return;
+    if (table === "products") {
+      await supabase.from("weight_logs").delete().eq("product_id", id);
+      await supabase.from("health_schedules").delete().eq("product_id", id);
+      await supabase.from("stock_movements").delete().eq("product_id", id);
+      await supabase.from("harvest_batches").delete().eq("product_id", id);
+      await supabase.from("recipe_ingredients").delete().eq("material_id", id);
+      await supabase.from("recipes").delete().eq("product_id", id);
+    }
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) {
       alert("Gagal hapus: " + error.message);
