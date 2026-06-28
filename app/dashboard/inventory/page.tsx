@@ -113,8 +113,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         <div className="mb-8">
           <HomeIndustryInventory products={products || []} userId={user!.id} businessId={business?.id} />
         </div>
-      ) : business?.type === "skip_kpi_placeholder" ? (
-        <div />
+      ) : business?.type === "kuliner" ? (
+        <div className="mb-8">
+          <FnBInventory products={products || []} userId={user!.id} businessId={business?.id} />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 mb-8">
           <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} config={config} />
