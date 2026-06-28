@@ -83,17 +83,49 @@ type FormResepProps = {
 };
 
 function FormResep({ products, fProductId, setFProductId, fQty, setFQty, fUnit, setFUnit, loading, onSave, onCancel }: FormResepProps) {
+  const selectedProduct = products.find(p => p.id === fProductId);
+  const estimasiBiaya = selectedProduct?.cost && fQty ? selectedProduct.cost * Number(fQty) : null;
+
+  const handlePilihBahan = (productId: string) => {
+    setFProductId(productId);
+    const p = products.find(x => x.id === productId);
+    if (p) {
+      const satuanMap: Record<string, string> = {
+        "Bahan Baku": "kg", "Bumbu": "gr", "Minuman": "pcs", "Kemasan": "pcs"
+      };
+      setFUnit(satuanMap[p.category || ""] || "pcs");
+    }
+  };
+
   return (
     <div className="bg-[#0A0A12] border border-[#8B5CF6]/20 rounded-xl p-3 mt-2">
       <p className="text-xs font-medium text-[#8B5CF6] mb-2">Tambah Bahan</p>
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        <select className={inputCls + " col-span-3 sm:col-span-1"} value={fProductId} onChange={e => setFProductId(e.target.value)}>
-          <option value="">Pilih bahan dari inventory</option>
-          {products.map(p => <option key={p.id} value={p.id}>{p.name} (stok: {p.stock})</option>)}
-        </select>
-        <input className={inputCls} type="number" placeholder="Jumlah" value={fQty} onChange={e => setFQty(e.target.value)} />
+      <select className={inputCls + " mb-2"} value={fProductId} onChange={e => handlePilihBahan(e.target.value)}>
+        <option value="">Pilih bahan dari inventory</option>
+        {products.map(p => <option key={p.id} value={p.id}>{p.name} — stok {p.stock} · {p.cost ? "Rp" + Number(p.cost).toLocaleString("id-ID") + "/satuan" : "harga belum diset"}</option>)}
+      </select>
+      {selectedProduct && (
+        <div className="bg-[#0F0F1A] rounded-lg px-3 py-2 mb-2 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-[#8B8AA0]">Stok tersedia</p>
+            <p className="text-sm font-mono text-[#F2F1F8]">{selectedProduct.stock} {fUnit}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-[#8B8AA0]">Harga beli/satuan</p>
+            <p className="text-sm font-mono text-[#EC4899]">{selectedProduct.cost ? "Rp" + Number(selectedProduct.cost).toLocaleString("id-ID") : "Belum diset"}</p>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <input className={inputCls} type="number" placeholder="Jumlah dipakai" value={fQty} onChange={e => setFQty(e.target.value)} />
         <input className={inputCls} placeholder="Satuan (gr/ml/pcs)" value={fUnit} onChange={e => setFUnit(e.target.value)} />
       </div>
+      {estimasiBiaya !== null && fQty && (
+        <div className="bg-[#EC4899]/10 border border-[#EC4899]/20 rounded-lg px-3 py-2 mb-2 flex justify-between items-center">
+          <span className="text-xs text-[#8B8AA0]">Estimasi biaya bahan ini</span>
+          <span className="text-sm font-mono font-medium text-[#EC4899]">{"Rp" + Math.round(estimasiBiaya).toLocaleString("id-ID")}</span>
+        </div>
+      )}
       <div className="flex gap-2">
         <button onClick={onSave} disabled={loading} className="flex-1 py-1.5 rounded-lg text-[#0A0A12] font-semibold text-xs disabled:opacity-50" style={{ background: "linear-gradient(to right, #38BDF8, #8B5CF6)" }}>
           {loading ? "..." : "Tambah Bahan"}
