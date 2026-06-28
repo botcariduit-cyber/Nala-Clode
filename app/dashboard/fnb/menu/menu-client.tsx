@@ -6,7 +6,7 @@ import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, AlertTriangle } from "luci
 
 type Product = { id: string; name: string; cost: number | null; stock: number; category: string | null };
 type MenuRecipe = { id: string; quantity: number; unit: string; products: Product };
-type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; status: string; foto_url: string | null; menu_recipes: MenuRecipe[] };
+type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; status: string; foto_url: string | null; menu_recipes: MenuRecipe[] };
 
 const KATEGORI_MENU = ["Makanan", "Minuman", "Snack", "Paket", "Lainnya"];
 const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#1D9E75", "Minuman": "#185FA5", "Snack": "#BA7517", "Paket": "#534AB7", "Lainnya": "#888780" };
@@ -14,9 +14,10 @@ const KATEGORI_BG: Record<string, string> = { "Makanan": "#E1F5EE", "Minuman": "
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50 text-sm";
 
 function calcHpp(menu: Menu): number {
-  return menu.menu_recipes.reduce((sum, r) => {
+  const totalBahan = menu.menu_recipes.reduce((sum, r) => {
     return sum + (r.products.cost || 0) * r.quantity;
   }, 0);
+  return totalBahan / (menu.yield_quantity || 1);
 }
 
 type FormMenuProps = {
@@ -25,11 +26,12 @@ type FormMenuProps = {
   fKategori: string; setFKategori: (v: string) => void;
   fHarga: string; setFHarga: (v: string) => void;
   fStatus: string; setFStatus: (v: string) => void;
+  fYield: string; setFYield: (v: string) => void;
   loading: boolean;
   onSave: () => void; onCancel: () => void;
 };
 
-function FormMenu({ editMenu, fNama, setFNama, fKategori, setFKategori, fHarga, setFHarga, fStatus, setFStatus, loading, onSave, onCancel }: FormMenuProps) {
+function FormMenu({ editMenu, fNama, setFNama, fKategori, setFKategori, fHarga, setFHarga, fStatus, setFStatus, fYield, setFYield, loading, onSave, onCancel }: FormMenuProps) {
   return (
     <div className="bg-[#0A0A12] border border-[#2DD4BF]/20 rounded-xl p-4 mb-4">
       <p className="text-xs font-medium text-[#2DD4BF] mb-3">{editMenu ? "Edit Menu" : "Tambah Menu Baru"}</p>
@@ -42,10 +44,24 @@ function FormMenu({ editMenu, fNama, setFNama, fKategori, setFKategori, fHarga, 
           </select>
           <input className={inputCls} type="number" placeholder="Harga jual (Rp)" value={fHarga} onChange={e => setFHarga(e.target.value)} />
         </div>
-        <select className={inputCls} value={fStatus} onChange={e => setFStatus(e.target.value)}>
-          <option value="aktif">Aktif</option>
-          <option value="nonaktif">Non-aktif</option>
-        </select>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-[#8B8AA0] mb-1 block">1 batch resep menghasilkan</label>
+            <input className={inputCls} type="number" placeholder="Contoh: 40" value={fYield} onChange={e => setFYield(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] text-[#8B8AA0] mb-1 block">Status</label>
+            <select className={inputCls} value={fStatus} onChange={e => setFStatus(e.target.value)}>
+              <option value="aktif">Aktif</option>
+              <option value="nonaktif">Non-aktif</option>
+            </select>
+          </div>
+        </div>
+        {fYield && Number(fYield) > 1 && fHarga && (
+          <div className="text-[11px] text-[#8B8AA0] px-1">
+            HPP per porsi akan dihitung dari total bahan dibagi {fYield} porsi
+          </div>
+        )}
         <div className="flex gap-2 mt-1">
           <button onClick={onSave} disabled={loading} className="flex-1 py-2 rounded-lg text-[#0A0A12] font-semibold text-sm disabled:opacity-50" style={{ background: "linear-gradient(to right, #38BDF8, #8B5CF6)" }}>
             {loading ? "Menyimpan..." : "Simpan"}
@@ -103,12 +119,13 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
   const [fKategori, setFKategori] = useState("Makanan");
   const [fHarga, setFHarga] = useState("");
   const [fStatus, setFStatus] = useState("aktif");
+  const [fYield, setFYield] = useState("1");
 
   const [fProductId, setFProductId] = useState("");
   const [fQty, setFQty] = useState("");
   const [fUnit, setFUnit] = useState("gr");
 
-  const resetMenuForm = () => { setFNama(""); setFKategori("Makanan"); setFHarga(""); setFStatus("aktif"); setEditMenu(null); };
+  const resetMenuForm = () => { setFNama(""); setFKategori("Makanan"); setFHarga(""); setFStatus("aktif"); setFYield("1"); setEditMenu(null); };
   const resetResepForm = () => { setFProductId(""); setFQty(""); setFUnit("gr"); };
 
   const filtered = activeTab === "Semua" ? menus : menus.filter(m => m.kategori === activeTab);
@@ -116,7 +133,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
   const handleSaveMenu = async () => {
     if (!fNama || !fHarga) return;
     setMenuLoading(true);
-    const payload = { user_id: userId, business_id: businessId, nama: fNama, kategori: fKategori, harga_jual: Number(fHarga), status: fStatus };
+    const payload = { user_id: userId, business_id: businessId, nama: fNama, kategori: fKategori, harga_jual: Number(fHarga), status: fStatus, yield_quantity: Number(fYield) || 1 };
     if (editMenu) { await supabase.from("menus").update(payload).eq("id", editMenu.id); }
     else { await supabase.from("menus").insert(payload); }
     setMenuLoading(false); resetMenuForm(); setShowMenuForm(false); router.refresh();
@@ -143,7 +160,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
 
   const startEdit = (m: Menu) => {
     setEditMenu(m); setFNama(m.nama); setFKategori(m.kategori || "Makanan");
-    setFHarga(m.harga_jual.toString()); setFStatus(m.status); setShowMenuForm(true);
+    setFHarga(m.harga_jual.toString()); setFStatus(m.status); setFYield((m.yield_quantity || 1).toString()); setShowMenuForm(true);
   };
 
   const totalMenu = menus.length;
@@ -182,7 +199,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
 
         {showMenuForm && (
           <div className="px-4 py-3 border-b border-white/10">
-            <FormMenu editMenu={editMenu} fNama={fNama} setFNama={setFNama} fKategori={fKategori} setFKategori={setFKategori} fHarga={fHarga} setFHarga={setFHarga} fStatus={fStatus} setFStatus={setFStatus} loading={menuLoading} onSave={handleSaveMenu} onCancel={() => { resetMenuForm(); setShowMenuForm(false); }} />
+            <FormMenu editMenu={editMenu} fNama={fNama} setFNama={setFNama} fKategori={fKategori} setFKategori={setFKategori} fHarga={fHarga} setFHarga={setFHarga} fStatus={fStatus} setFStatus={setFStatus} fYield={fYield} setFYield={setFYield} loading={menuLoading} onSave={handleSaveMenu} onCancel={() => { resetMenuForm(); setShowMenuForm(false); }} />
           </div>
         )}
 
@@ -265,7 +282,17 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
                             );
                           })}
                           <div className="flex items-center justify-between pt-2 mt-1 border-t border-white/10">
-                            <span className="text-xs text-[#8B8AA0]">Total HPP</span>
+                            <span className="text-xs text-[#8B8AA0]">Total biaya bahan</span>
+                            <span className="text-sm font-mono text-[#EC4899]">Rp{Math.round(hpp * (m.yield_quantity || 1)).toLocaleString("id-ID")}</span>
+                          </div>
+                          {(m.yield_quantity || 1) > 1 && (
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-xs text-[#8B8AA0]">Hasil per batch</span>
+                              <span className="text-sm font-mono text-[#F59E0B]">{m.yield_quantity} porsi</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs text-[#8B8AA0]">HPP per porsi</span>
                             <span className="text-sm font-mono font-semibold text-[#EC4899]">Rp{Math.round(hpp).toLocaleString("id-ID")}</span>
                           </div>
                           <div className="flex items-center justify-between pt-1">
