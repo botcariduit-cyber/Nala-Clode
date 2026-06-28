@@ -199,7 +199,7 @@ export default function HomeIndustryInventory({ products, userId, businessId }: 
           <span className="text-[11px] font-semibold tracking-wide uppercase" style={{ color }}>{kat + " (" + items.length + ")"}</span>
           <button onClick={() => { resetForm(); setFKategori(kat); setShowForm(isShowing && !editProduct ? null : kat); }} className="text-[10px] flex items-center gap-1 px-2.5 py-1 rounded-lg border" style={{ color, borderColor: color + "40", background: color + "10" }}><Plus size={10} /> Tambah</button>
         </div>
-        {isShowing && renderAddForm(kat)}
+        {isShowing && <div key={"form-" + kat}>{renderAddForm(kat)}</div>}
         {items.length === 0 && !isShowing ? <p className="text-xs text-[#5A5B6A] text-center py-4">{"Belum ada " + kat.toLowerCase() + "."}</p> : items.map(p => <ItemRow key={p.id} p={p} />)}
       </div>
     );
