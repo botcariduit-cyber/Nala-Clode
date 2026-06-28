@@ -89,7 +89,7 @@ export default function HomeIndustryInventory({ products, userId, businessId }: 
 
   const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50 text-sm";
 
-  const AddForm = ({ kat }: { kat: string }) => {
+  const renderAddForm = (kat: string) => {
     const color = KATEGORI_COLOR[kat] || "#8B8AA0";
     const isProdukJadi = kat === "Produk Jadi";
     const laba = fHargaJual && fHargaBeli ? Number(fHargaJual) - Number(fHargaBeli) : null;
@@ -199,7 +199,7 @@ export default function HomeIndustryInventory({ products, userId, businessId }: 
           <span className="text-[11px] font-semibold tracking-wide uppercase" style={{ color }}>{kat + " (" + items.length + ")"}</span>
           <button onClick={() => { resetForm(); setFKategori(kat); setShowForm(isShowing && !editProduct ? null : kat); }} className="text-[10px] flex items-center gap-1 px-2.5 py-1 rounded-lg border" style={{ color, borderColor: color + "40", background: color + "10" }}><Plus size={10} /> Tambah</button>
         </div>
-        {isShowing && <AddForm kat={kat} />}
+        {isShowing && renderAddForm(kat)}
         {items.length === 0 && !isShowing ? <p className="text-xs text-[#5A5B6A] text-center py-4">{"Belum ada " + kat.toLowerCase() + "."}</p> : items.map(p => <ItemRow key={p.id} p={p} />)}
       </div>
     );
