@@ -2,13 +2,21 @@
 import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
 import BusinessSwitcher from "./business-switcher";
 
-const activeModules = [
+const baseModules = [
   { name: "Gercep Chat", href: "/dashboard/chat", icon: MessageCircle },
   { name: "Keuangan Pribadi", href: "/dashboard/keuangan-pribadi", icon: Wallet },
   { name: "Keuangan Bisnis", href: "/dashboard/keuangan-bisnis", icon: Store },
   { name: "Inventory", href: "/dashboard/inventory", icon: Package },
   { name: "Produksi", href: "/dashboard/produksi", icon: Factory },
+];
+
+const ternak_modules = [
   { name: "Manajemen Ternak", href: "/dashboard/peternakan", icon: Bird },
+];
+
+const fnb_modules = [
+  { name: "Master Menu", href: "/dashboard/fnb/menu", icon: Receipt },
+  { name: "Kasir", href: "/dashboard/fnb/kasir", icon: ShoppingCart, comingSoon: true },
 ];
 
 const comingSoonModules = [
@@ -59,11 +67,22 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
       <nav className="flex-1 overflow-y-auto px-3 py-4 relative">
         {expanded && <p className="text-[10px] text-[#2DD4BF] tracking-wide px-2 mb-2 font-medium whitespace-nowrap">MODUL AKTIF</p>}
         <div className="flex flex-col gap-1 mb-6">
-          {activeModules.map((m) => (
-            <a key={m.href} href={m.href} title={m.name} onClick={() => onNavigate?.()} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F2F1F8] hover:bg-white/5 transition-colors whitespace-nowrap " + (expanded ? "" : "justify-center")}>
-              <m.icon size={16} className="text-[#8B8AA0] flex-shrink-0" />
-              {expanded && m.name}
-            </a>
+          {[
+            ...baseModules,
+            ...(activeBusiness?.type === "ternak" ? ternak_modules : []),
+            ...(activeBusiness?.type === "kuliner" ? fnb_modules : []),
+          ].map((m) => (
+            "comingSoon" in m && m.comingSoon ? (
+              <div key={m.name} title={m.name} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#8B8AA0]/40 cursor-not-allowed whitespace-nowrap " + (expanded ? "" : "justify-center")}>
+                <m.icon size={16} className="flex-shrink-0" />
+                {expanded && m.name}
+              </div>
+            ) : (
+              <a key={m.href} href={m.href} title={m.name} onClick={() => onNavigate?.()} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F2F1F8] hover:bg-white/5 transition-colors whitespace-nowrap " + (expanded ? "" : "justify-center")}>
+                <m.icon size={16} className="text-[#8B8AA0] flex-shrink-0" />
+                {expanded && m.name}
+              </a>
+            )
           ))}
         </div>
 
