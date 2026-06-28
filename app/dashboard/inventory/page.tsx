@@ -12,6 +12,7 @@ import { Package, AlertTriangle, Wallet, TrendingUp } from "lucide-react";
 import { Suspense } from "react";
 import { getConfig } from "./business-config";
 import LivestockInventory from "./livestock-inventory";
+import HomeIndustryInventory from "./home-industry-inventory";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
@@ -104,6 +105,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {business?.type === "ternak" ? (
         <div className="mb-8">
           <LivestockInventory products={products || []} userId={user!.id} businessId={business?.id} />
+        </div>
+      ) : business?.type === "homeindustry" ? (
+        <div className="mb-8">
+          <HomeIndustryInventory products={products || []} userId={user!.id} businessId={business?.id} />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 mb-8">
