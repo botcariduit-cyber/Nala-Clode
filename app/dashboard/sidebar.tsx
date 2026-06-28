@@ -16,7 +16,7 @@ const ternak_modules = [
 
 const fnb_modules = [
   { name: "Master Menu", href: "/dashboard/fnb/menu", icon: Receipt },
-  { name: "Kasir", href: "/dashboard/fnb/kasir", icon: ShoppingCart, comingSoon: true },
+  { name: "Kasir", href: "/dashboard/fnb/kasir", icon: ShoppingCart },
 ];
 
 const comingSoonModules = [
