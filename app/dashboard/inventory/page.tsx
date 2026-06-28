@@ -13,6 +13,7 @@ import { Suspense } from "react";
 import { getConfig } from "./business-config";
 import LivestockInventory from "./livestock-inventory";
 import HomeIndustryInventory from "./home-industry-inventory";
+import FnBInventory from "./fnb-inventory";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
@@ -91,7 +92,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       </div>
       <p className="text-[#8B8AA0] mb-8">{config.produkLabel} dan stok kamu.</p>
 
-      {business?.type !== "homeindustry" && business?.type !== "ternak" && (
+      {business?.type !== "homeindustry" && business?.type !== "ternak" && business?.type !== "kuliner" && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {kpis.map((k) => (
             <div key={k.label} className="relative bg-[#0F0F1A] border border-white/10 rounded-2xl p-5 overflow-hidden">
