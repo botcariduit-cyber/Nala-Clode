@@ -91,7 +91,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       </div>
       <p className="text-[#8B8AA0] mb-8">{config.produkLabel} dan stok kamu.</p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      {business?.type !== "homeindustry" && business?.type !== "ternak" && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {kpis.map((k) => (
           <div key={k.label} className="relative bg-[#0F0F1A] border border-white/10 rounded-2xl p-5 overflow-hidden">
             <div className="absolute w-20 h-20 rounded-full -top-6 -right-6" style={{ background: k.color, filter: "blur(40px)", opacity: 0.2 }} />
@@ -110,6 +110,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         <div className="mb-8">
           <HomeIndustryInventory products={products || []} userId={user!.id} businessId={business?.id} />
         </div>
+      ) : business?.type === "skip_kpi_placeholder" ? (
+        <div />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 mb-8">
           <ProductForm userId={user!.id} businessId={business?.id} nextSkuNumber={totalProducts + 1} config={config} />
