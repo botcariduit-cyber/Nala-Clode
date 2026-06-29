@@ -11,7 +11,7 @@ export default async function KasirPublicPage({ params }: { params: Promise<{ to
 
   const { data: employee } = await supabase
     .from("employees")
-    .select("*, businesses(id, name, type)")
+    .select("*")
     .eq("kasir_token", token)
     .eq("aktif", true)
     .single();
@@ -28,7 +28,25 @@ export default async function KasirPublicPage({ params }: { params: Promise<{ to
     );
   }
 
-  const business = employee.businesses as { id: string; name: string; type: string };
+  const { data: businessData } = await supabase
+    .from("businesses")
+    .select("id, name, type")
+    .eq("id", employee.business_id)
+    .single();
+
+  if (!businessData) {
+    return (
+      <div style={{ background: "#070711", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", color: "#F0EFF8" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "48px", marginBottom: "1rem" }}>⚠️</div>
+          <div style={{ fontSize: "18px", fontWeight: 600, marginBottom: ".5rem" }}>Bisnis tidak ditemukan</div>
+          <div style={{ fontSize: "13px", color: "#5A5B7A" }}>Hubungi owner untuk bantuan.</div>
+        </div>
+      </div>
+    );
+  }
+
+  const business = businessData;
 
   const { data: menus } = await supabase
     .from("menus")
