@@ -26,6 +26,25 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
+      // Cek apakah user adalah karyawan (bukan owner)
+      const { data: memberData } = await supabase
+        .from("business_members")
+        .select("role, status, business_id")
+        .eq("member_user_id", user.id)
+        .eq("status", "aktif")
+        .limit(1)
+        .single();
+
+      if (memberData?.role === "kasir") {
+        // Karyawan kasir hanya bisa akses halaman kasir
+        const kasirPath = "/dashboard/fnb/kasir";
+        if (!request.nextUrl.pathname.startsWith(kasirPath)) {
+          return NextResponse.redirect(new URL(kasirPath, request.url));
+        }
+        return response;
+      }
+
+      // Owner - cek bisnis seperti biasa
       const { data: business } = await supabase
         .from("businesses")
         .select("type, name")
