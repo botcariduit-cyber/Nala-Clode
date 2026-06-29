@@ -48,6 +48,7 @@ export default function KasirPublicClient({ employee: emp, business, menus, init
   const [lastOrder, setLastOrder] = useState<{total:number;laba:number;disc:number;items:number;metode:string;note:string}|null>(null);
   const [clock, setClock] = useState("");
   const [checkinId, setCheckinId] = useState<string|null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const [fpStatus, setFpStatus] = useState("");
 
   useEffect(() => {
@@ -234,6 +235,7 @@ export default function KasirPublicClient({ employee: emp, business, menus, init
     setLastOrder({ total, laba: Math.round(laba), disc: discNum, items: cartItems.length, metode: metodeBayar, note: catatan });
     setStats(prev => ({ ...prev, omzet: prev.omzet + total, laba: prev.laba + Math.round(laba), totalOrders: prev.totalOrders + 1 }));
     setLoading(false);
+    setCartOpen(false);
     setShowSuccess(true);
     setCart({}); setDiskon(""); setCatatan("");
   };
@@ -331,124 +333,140 @@ export default function KasirPublicClient({ employee: emp, business, menus, init
   );
 
   return (
-    <div style={{ ...S, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div style={{ ...S, display: "flex", flexDirection: "column", minHeight: "100vh", overflow: "hidden" }}>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');body{margin:0}`}</style>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "0.5px solid rgba(255,255,255,.06)", background: "#0D0D1A", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ fontSize: "15px", fontWeight: 700 }}>GercepAI <span style={{ background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Kasir</span></div>
-          <div style={{ width: "1px", height: "14px", background: "rgba(255,255,255,.08)" }} />
-          <div style={{ fontSize: "12px", color: "#5A5B7A" }}>Kasir: <strong style={{ color: "#F0EFF8" }}>{employee.nama}</strong></div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderBottom: "0.5px solid rgba(255,255,255,.06)", background: "#0D0D1A", flexShrink: 0, position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+          <div style={{ fontSize: "13px", fontWeight: 700, whiteSpace: "nowrap" }}>Gercep<span style={{ background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span></div>
+          <div style={{ width: "1px", height: "12px", background: "rgba(255,255,255,.08)", flexShrink: 0 }} />
+          <div style={{ fontSize: "11px", color: "#5A5B7A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><strong style={{ color: "#F0EFF8" }}>{employee.nama}</strong></div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "12px", color: "#2DD4BF" }}>{clock}</div>
-          <button onClick={() => setShowSOP(true)} style={{ background: "none", border: "0.5px solid rgba(255,255,255,.1)", color: "#8B8AA0", padding: "4px 10px", borderRadius: "8px", fontSize: "11px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>SOP</button>
-          <button onClick={() => setShowCheckout(true)} style={{ background: "rgba(236,72,153,.06)", border: "0.5px solid rgba(236,72,153,.2)", color: "#EC4899", padding: "4px 10px", borderRadius: "8px", fontSize: "11px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Check-out</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+          <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "11px", color: "#2DD4BF" }}>{clock}</div>
+          <button onClick={() => setShowSOP(true)} aria-label="SOP" style={{ background: "none", border: "0.5px solid rgba(255,255,255,.1)", color: "#8B8AA0", width: "28px", height: "28px", borderRadius: "8px", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><i className="ti ti-book" /></button>
+          <button onClick={() => setShowCheckout(true)} aria-label="Check-out" style={{ background: "rgba(236,72,153,.06)", border: "0.5px solid rgba(236,72,153,.2)", color: "#EC4899", width: "28px", height: "28px", borderRadius: "8px", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><i className="ti ti-logout" /></button>
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", padding: "8px 14px", borderBottom: "0.5px solid rgba(255,255,255,.05)", flexShrink: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "6px", padding: "8px 10px", borderBottom: "0.5px solid rgba(255,255,255,.05)", flexShrink: 0 }}>
         {[
           { l: "Omzet", v: "Rp" + (stats.omzet >= 1000 ? Math.round(stats.omzet/1000) + "rb" : stats.omzet), c: "#2DD4BF" },
           { l: "Order", v: stats.totalOrders.toString(), c: "#8B5CF6" },
           { l: "Laba", v: "Rp" + (stats.laba >= 1000 ? Math.round(stats.laba/1000) + "rb" : stats.laba), c: "#F59E0B" },
           { l: "Food cost", v: stats.foodCost + "%", c: "#EC4899" },
         ].map(k => (
-          <div key={k.l} style={{ flex: 1, background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: "10px", padding: "8px 12px", borderBottom: "2px solid " + k.c }}>
+          <div key={k.l} style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: "10px", padding: "7px 10px", borderBottom: "2px solid " + k.c }}>
             <div style={{ fontSize: "10px", color: "#5A5B7A", marginBottom: "2px" }}>{k.l}</div>
-            <div style={{ fontSize: "14px", fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: k.c }}>{k.v}</div>
+            <div style={{ fontSize: "13px", fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", borderRight: "0.5px solid rgba(255,255,255,.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", borderBottom: "0.5px solid rgba(255,255,255,.05)" }}>
-            <i className="ti ti-search" style={{ fontSize: "13px", color: "#3A3B52" }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari menu..." style={{ flex: 1, background: "none", border: "none", fontSize: "12px", color: "#F0EFF8", outline: "none", fontFamily: "'Space Grotesk', sans-serif" }} />
-          </div>
-          <div style={{ display: "flex", gap: "5px", padding: "7px 12px", borderBottom: "0.5px solid rgba(255,255,255,.05)", overflowX: "auto", flexShrink: 0 }}>
-            {categories.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "20px", border: "0.5px solid " + (activeTab === tab ? "rgba(45,212,191,.45)" : "rgba(255,255,255,.08)"), color: activeTab === tab ? "#2DD4BF" : "#5A5B7A", background: activeTab === tab ? "rgba(45,212,191,.08)" : "none", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Space Grotesk', sans-serif" }}>{tab}</button>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "8px", padding: "10px 12px", overflowY: "auto", flex: 1 }}>
-            {filtered.length === 0 ? (
-              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "3rem", color: "#3A3B52", fontSize: "12px" }}>Belum ada menu aktif</div>
-            ) : filtered.map(m => {
-              const qty = cart[m.id] || 0;
-              const color = KATEGORI_COLOR[m.kategori || ""] || "#8B8AA0";
-              const icon = KATEGORI_ICON[m.kategori || ""] || "ti-dots";
-              const hpp = calcHpp(m);
-              const mg = m.harga_jual > 0 ? Math.round((m.harga_jual - hpp) / m.harga_jual * 100) : 0;
-              return (
-                <div key={m.id} onClick={() => addItem(m.id)} style={{ background: "#0D0D1A", border: "0.5px solid " + (qty > 0 ? "rgba(45,212,191,.4)" : "rgba(255,255,255,.06)"), borderRadius: "12px", overflow: "hidden", cursor: "pointer", position: "relative" }}>
-                  {qty > 0 && <div style={{ position: "absolute", top: "5px", right: "5px", width: "17px", height: "17px", borderRadius: "50%", background: "#2DD4BF", color: "#070711", fontSize: "10px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{qty}</div>}
-                  <div style={{ height: "52px", display: "flex", alignItems: "center", justifyContent: "center", background: color + "12" }}>
-                    <i className={"ti " + icon} style={{ fontSize: "22px", color }} />
-                  </div>
-                  <div style={{ padding: "7px 8px" }}>
-                    <div style={{ fontSize: "11px", fontWeight: 500, marginBottom: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nama}</div>
-                    <div style={{ fontSize: "10px", color: "#5A5B7A", marginBottom: "3px" }}>HPP Rp{Math.round(hpp).toLocaleString("id-ID")} · {mg}%</div>
-                    <div style={{ fontSize: "12px", fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: "#2DD4BF", marginBottom: "4px" }}>Rp{m.harga_jual.toLocaleString("id-ID")}</div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <button onClick={e => { e.stopPropagation(); removeItem(m.id); }} style={{ width: "19px", height: "19px", borderRadius: "5px", border: "0.5px solid " + (qty > 0 ? "rgba(45,212,191,.4)" : "rgba(255,255,255,.08)"), background: qty > 0 ? "rgba(45,212,191,.08)" : "rgba(255,255,255,.03)", color: qty > 0 ? "#2DD4BF" : "#5A5B7A", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}>-</button>
-                      <span style={{ fontSize: "11px", fontFamily: "monospace", color: qty > 0 ? "#2DD4BF" : "#3A3B52", minWidth: "14px", textAlign: "center" }}>{qty}</span>
-                      <button onClick={e => { e.stopPropagation(); addItem(m.id); }} style={{ width: "19px", height: "19px", borderRadius: "5px", border: "0.5px solid rgba(45,212,191,.4)", background: "rgba(45,212,191,.08)", color: "#2DD4BF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}>+</button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", borderBottom: "0.5px solid rgba(255,255,255,.05)", flexShrink: 0 }}>
+        <i className="ti ti-search" style={{ fontSize: "14px", color: "#3A3B52" }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari menu..." style={{ flex: 1, background: "none", border: "none", fontSize: "13px", color: "#F0EFF8", outline: "none", fontFamily: "'Space Grotesk', sans-serif" }} />
+      </div>
+      <div style={{ display: "flex", gap: "6px", padding: "8px 12px", borderBottom: "0.5px solid rgba(255,255,255,.05)", overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" }}>
+        {categories.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "20px", border: "0.5px solid " + (activeTab === tab ? "rgba(45,212,191,.45)" : "rgba(255,255,255,.08)"), color: activeTab === tab ? "#2DD4BF" : "#5A5B7A", background: activeTab === tab ? "rgba(45,212,191,.08)" : "none", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>{tab}</button>
+        ))}
+      </div>
 
-        <div style={{ width: "255px", display: "flex", flexDirection: "column", overflow: "hidden", background: "#0D0D1A" }}>
-          <div style={{ padding: "10px 14px", borderBottom: "0.5px solid rgba(255,255,255,.06)" }}>
-            <div style={{ fontSize: "10px", color: "#2DD4BF", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: "1px" }}>Order aktif</div>
-            <div style={{ fontSize: "11px", color: "#5A5B7A" }}>{cartItems.length} item</div>
-          </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px 14px" }}>
-            {cartItems.length === 0 ? <div style={{ textAlign: "center", padding: "2rem 0", color: "#3A3B52", fontSize: "12px" }}>Pilih menu di sebelah kiri</div> :
-              cartItems.map(c => (
-                <div key={c.menu.id} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
-                  <div style={{ flex: 1, fontSize: "11px", color: "#C4C3D4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.menu.nama}</div>
-                  <div style={{ fontSize: "10px", color: "#5A5B7A", fontFamily: "monospace" }}>×{c.qty}</div>
-                  <div style={{ fontSize: "11px", fontFamily: "monospace", whiteSpace: "nowrap" }}>Rp{(c.menu.harga_jual * c.qty).toLocaleString("id-ID")}</div>
-                  <button onClick={() => setCart(prev => { const n = {...prev}; delete n[c.menu.id]; return n; })} style={{ background: "none", border: "none", color: "#3A3B52", cursor: "pointer", fontSize: "10px", padding: "0 2px" }}>✕</button>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "10px", padding: "10px 12px", flex: 1, paddingBottom: cartItems.length > 0 ? "92px" : "16px" }}>
+        {filtered.length === 0 ? (
+          <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "3rem 1rem", color: "#3A3B52", fontSize: "13px" }}>Belum ada menu aktif</div>
+        ) : filtered.map(m => {
+          const qty = cart[m.id] || 0;
+          const color = KATEGORI_COLOR[m.kategori || ""] || "#8B8AA0";
+          const icon = KATEGORI_ICON[m.kategori || ""] || "ti-dots";
+          const hpp = calcHpp(m);
+          const mg = m.harga_jual > 0 ? Math.round((m.harga_jual - hpp) / m.harga_jual * 100) : 0;
+          return (
+            <div key={m.id} onClick={() => addItem(m.id)} style={{ background: "#0D0D1A", border: "0.5px solid " + (qty > 0 ? "rgba(45,212,191,.4)" : "rgba(255,255,255,.06)"), borderRadius: "14px", overflow: "hidden", cursor: "pointer", position: "relative" }}>
+              {qty > 0 && <div style={{ position: "absolute", top: "8px", right: "8px", minWidth: "22px", height: "22px", padding: "0 5px", borderRadius: "11px", background: "#2DD4BF", color: "#070711", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{qty}</div>}
+              <div style={{ height: "72px", display: "flex", alignItems: "center", justifyContent: "center", background: color + "12" }}>
+                <i className={"ti " + icon} style={{ fontSize: "30px", color }} />
+              </div>
+              <div style={{ padding: "10px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nama}</div>
+                <div style={{ fontSize: "11px", color: "#5A5B7A", marginBottom: "6px" }}>HPP Rp{Math.round(hpp).toLocaleString("id-ID")} · {mg}%</div>
+                <div style={{ fontSize: "15px", fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: "#2DD4BF", marginBottom: "8px" }}>Rp{m.harga_jual.toLocaleString("id-ID")}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <button onClick={e => { e.stopPropagation(); removeItem(m.id); }} aria-label="Kurangi" style={{ width: "30px", height: "30px", borderRadius: "9px", border: "0.5px solid " + (qty > 0 ? "rgba(45,212,191,.4)" : "rgba(255,255,255,.08)"), background: qty > 0 ? "rgba(45,212,191,.08)" : "rgba(255,255,255,.03)", color: qty > 0 ? "#2DD4BF" : "#5A5B7A", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px" }}>−</button>
+                  <span style={{ fontSize: "14px", fontFamily: "monospace", fontWeight: 600, color: qty > 0 ? "#2DD4BF" : "#3A3B52", minWidth: "18px", textAlign: "center" }}>{qty}</span>
+                  <button onClick={e => { e.stopPropagation(); addItem(m.id); }} aria-label="Tambah" style={{ width: "30px", height: "30px", borderRadius: "9px", border: "0.5px solid rgba(45,212,191,.4)", background: "rgba(45,212,191,.08)", color: "#2DD4BF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px" }}>+</button>
                 </div>
-              ))
-            }
-          </div>
-          <div style={{ padding: "10px 14px", borderTop: "0.5px solid rgba(255,255,255,.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#5A5B7A", marginBottom: "4px" }}><span>Subtotal</span><span style={{ fontFamily: "monospace" }}>Rp{subtotal.toLocaleString("id-ID")}</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "6px" }}>
-              <span style={{ fontSize: "11px", color: "#5A5B7A", flex: 1 }}>Diskon</span>
-              <input type="number" value={diskon} onChange={e => setDiskon(e.target.value)} placeholder="0" style={{ width: "60px", fontSize: "11px", padding: "3px 6px", borderRadius: "6px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#F0EFF8", textAlign: "right", fontFamily: "monospace", outline: "none" }} />
-              <span style={{ fontSize: "10px", color: "#5A5B7A" }}>Rp</span>
+              </div>
             </div>
-            <div style={{ height: "0.5px", background: "rgba(255,255,255,.06)", margin: "6px 0" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "3px" }}>
-              <span style={{ fontSize: "13px", fontWeight: 500 }}>Total</span>
-              <span style={{ fontSize: "16px", fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: "#2DD4BF" }}>Rp{total.toLocaleString("id-ID")}</span>
+          );
+        })}
+      </div>
+
+      {cartItems.length > 0 && !cartOpen && (
+        <button onClick={() => setCartOpen(true)} style={{ position: "sticky", bottom: "12px", left: "12px", right: "12px", margin: "0 12px", background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711", border: "none", borderRadius: "16px", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", zIndex: 60 }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ background: "rgba(7,7,17,.18)", borderRadius: "50%", width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>{cartItems.reduce((s,c)=>s+c.qty,0)}</span>
+            Lihat order
+          </span>
+          <span style={{ fontSize: "14px", fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>Rp{total.toLocaleString("id-ID")}</span>
+        </button>
+      )}
+
+      {cartOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(7,7,17,.7)", zIndex: 100, display: "flex", alignItems: "flex-end" }} onClick={() => setCartOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#0D0D1A", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ width: "36px", height: "4px", background: "rgba(255,255,255,.15)", borderRadius: "2px", margin: "10px auto" }} />
+            <div style={{ padding: "0 16px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "0.5px solid rgba(255,255,255,.06)", paddingBottom: "12px" }}>
+              <div>
+                <div style={{ fontSize: "11px", color: "#2DD4BF", letterSpacing: ".08em", textTransform: "uppercase" }}>Order aktif</div>
+                <div style={{ fontSize: "12px", color: "#5A5B7A" }}>{cartItems.length} item</div>
+              </div>
+              <button onClick={() => setCartOpen(false)} aria-label="Tutup" style={{ background: "rgba(255,255,255,.05)", border: "none", color: "#8B8AA0", width: "30px", height: "30px", borderRadius: "50%", fontSize: "16px", cursor: "pointer" }}>✕</button>
             </div>
-            <div style={{ fontSize: "10px", color: "#5A5B7A", marginBottom: "8px" }}>Laba est. <span style={{ color: "#2DD4BF" }}>Rp{Math.round(laba).toLocaleString("id-ID")}</span> · {margin}%</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "4px", marginBottom: "7px" }}>
-              {[{ v: "tunai", l: "Tunai", icon: "ti-cash" }, { v: "qris", l: "QRIS", icon: "ti-qrcode" }, { v: "transfer", l: "Transfer", icon: "ti-credit-card" }].map(m => (
-                <button key={m.v} onClick={() => setMetodeBayar(m.v)} style={{ padding: "6px 3px", borderRadius: "7px", border: "0.5px solid " + (metodeBayar === m.v ? "rgba(45,212,191,.4)" : "rgba(255,255,255,.08)"), background: metodeBayar === m.v ? "rgba(45,212,191,.07)" : "none", color: metodeBayar === m.v ? "#2DD4BF" : "#5A5B7A", fontSize: "10px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", textAlign: "center" }}>
-                  <i className={"ti " + m.icon} style={{ display: "block", fontSize: "12px", marginBottom: "2px" }} />{m.l}
-                </button>
+
+            <div style={{ overflowY: "auto", flex: 1, padding: "10px 16px" }}>
+              {cartItems.map(c => (
+                <div key={c.menu.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "9px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
+                  <div style={{ flex: 1, fontSize: "13px", color: "#C4C3D4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.menu.nama}</div>
+                  <button onClick={() => removeItem(c.menu.id)} aria-label="Kurangi" style={{ width: "26px", height: "26px", borderRadius: "8px", border: "0.5px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.03)", color: "#8B8AA0", fontSize: "14px", cursor: "pointer" }}>−</button>
+                  <span style={{ fontSize: "13px", fontFamily: "monospace", minWidth: "16px", textAlign: "center" }}>{c.qty}</span>
+                  <button onClick={() => addItem(c.menu.id)} aria-label="Tambah" style={{ width: "26px", height: "26px", borderRadius: "8px", border: "0.5px solid rgba(45,212,191,.4)", background: "rgba(45,212,191,.08)", color: "#2DD4BF", fontSize: "14px", cursor: "pointer" }}>+</button>
+                  <div style={{ fontSize: "13px", fontFamily: "monospace", whiteSpace: "nowrap", minWidth: "78px", textAlign: "right" }}>Rp{(c.menu.harga_jual * c.qty).toLocaleString("id-ID")}</div>
+                </div>
               ))}
             </div>
-            <input value={catatan} onChange={e => setCatatan(e.target.value)} placeholder="Catatan (meja, nama...)" style={{ width: "100%", fontSize: "11px", padding: "6px 9px", borderRadius: "7px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#F0EFF8", fontFamily: "'Space Grotesk', sans-serif", outline: "none", marginBottom: "7px" }} />
-            <button onClick={handleProses} disabled={loading || !cartItems.length} style={{ ...btnGrad, opacity: loading || !cartItems.length ? 0.35 : 1, cursor: loading || !cartItems.length ? "not-allowed" : "pointer" }}>
-              {loading ? "Memproses..." : `Proses — Rp${total.toLocaleString("id-ID")}`}
-            </button>
-            <button onClick={() => { setCart({}); setDiskon(""); setCatatan(""); }} style={{ width: "100%", padding: "6px", borderRadius: "8px", border: "0.5px solid rgba(236,72,153,.2)", background: "rgba(236,72,153,.04)", color: "#EC4899", fontSize: "11px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Reset order</button>
+
+            <div style={{ padding: "12px 16px", borderTop: "0.5px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#5A5B7A", marginBottom: "6px" }}><span>Subtotal</span><span style={{ fontFamily: "monospace" }}>Rp{subtotal.toLocaleString("id-ID")}</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                <span style={{ fontSize: "12px", color: "#5A5B7A", flex: 1 }}>Diskon</span>
+                <input type="number" value={diskon} onChange={e => setDiskon(e.target.value)} placeholder="0" style={{ width: "80px", fontSize: "12px", padding: "5px 8px", borderRadius: "8px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#F0EFF8", textAlign: "right", fontFamily: "monospace", outline: "none" }} />
+                <span style={{ fontSize: "11px", color: "#5A5B7A" }}>Rp</span>
+              </div>
+              <div style={{ height: "0.5px", background: "rgba(255,255,255,.06)", margin: "8px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
+                <span style={{ fontSize: "14px", fontWeight: 500 }}>Total</span>
+                <span style={{ fontSize: "19px", fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: "#2DD4BF" }}>Rp{total.toLocaleString("id-ID")}</span>
+              </div>
+              <div style={{ fontSize: "11px", color: "#5A5B7A", marginBottom: "10px" }}>Laba est. <span style={{ color: "#2DD4BF" }}>Rp{Math.round(laba).toLocaleString("id-ID")}</span> · {margin}%</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "6px", marginBottom: "10px" }}>
+                {[{ v: "tunai", l: "Tunai", icon: "ti-cash" }, { v: "qris", l: "QRIS", icon: "ti-qrcode" }, { v: "transfer", l: "Transfer", icon: "ti-credit-card" }].map(m => (
+                  <button key={m.v} onClick={() => setMetodeBayar(m.v)} style={{ padding: "9px 4px", borderRadius: "10px", border: "0.5px solid " + (metodeBayar === m.v ? "rgba(45,212,191,.4)" : "rgba(255,255,255,.08)"), background: metodeBayar === m.v ? "rgba(45,212,191,.07)" : "none", color: metodeBayar === m.v ? "#2DD4BF" : "#5A5B7A", fontSize: "12px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", textAlign: "center" }}>
+                    <i className={"ti " + m.icon} style={{ display: "block", fontSize: "16px", marginBottom: "3px" }} />{m.l}
+                  </button>
+                ))}
+              </div>
+              <input value={catatan} onChange={e => setCatatan(e.target.value)} placeholder="Catatan (meja, nama...)" style={{ width: "100%", fontSize: "13px", padding: "10px 12px", borderRadius: "10px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#F0EFF8", fontFamily: "'Space Grotesk', sans-serif", outline: "none", marginBottom: "10px" }} />
+              <button onClick={handleProses} disabled={loading || !cartItems.length} style={{ ...btnGrad, padding: "15px", fontSize: "14px", opacity: loading || !cartItems.length ? 0.35 : 1, cursor: loading || !cartItems.length ? "not-allowed" : "pointer" }}>
+                {loading ? "Memproses..." : `Proses — Rp${total.toLocaleString("id-ID")}`}
+              </button>
+              <button onClick={() => { setCart({}); setDiskon(""); setCatatan(""); setCartOpen(false); }} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "0.5px solid rgba(236,72,153,.2)", background: "rgba(236,72,153,.04)", color: "#EC4899", fontSize: "12px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Reset order</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {showSuccess && lastOrder && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(7,7,17,.96)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "1rem" }}>
