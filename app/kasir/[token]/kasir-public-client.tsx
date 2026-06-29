@@ -15,12 +15,25 @@ function calcHpp(menu: Menu): number {
   return total / (menu.yield_quantity || 1);
 }
 
-export default function KasirPublicClient({ employee, business, menus, initialStats, today }: {
+function buf2b64(buf: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+
+function b642buf(b64: string): ArrayBuffer {
+  const bin = atob(b64);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+
+export default function KasirPublicClient({ employee: emp, business, menus, initialStats, today }: {
   employee: Employee; business: Business; menus: Menu[];
   initialStats: Stats; today: string;
 }) {
   const supabase = createClient();
+  const [employee, setEmployee] = useState(emp);
   const [screen, setScreen] = useState<"auth"|"scanning"|"welcome"|"kasir">("auth");
+  const [authMode, setAuthMode] = useState<"register"|"login">(emp.webauthn_credential_id ? "login" : "register");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("Semua");
@@ -35,6 +48,7 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
   const [lastOrder, setLastOrder] = useState<{total:number;laba:number;disc:number;items:number;metode:string;note:string}|null>(null);
   const [clock, setClock] = useState("");
   const [checkinId, setCheckinId] = useState<string|null>(null);
+  const [fpStatus, setFpStatus] = useState("");
 
   useEffect(() => {
     const update = () => setClock(new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
@@ -43,25 +57,98 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
     return () => clearInterval(t);
   }, []);
 
-  const doFingerprint = async () => {
+  // ===== WEBAUTHN REGISTER =====
+  const doRegister = async () => {
+    if (!window.PublicKeyCredential) {
+      setFpStatus("Browser tidak support WebAuthn. Coba Safari atau Chrome terbaru.");
+      return;
+    }
     setScreen("scanning");
-    await new Promise(r => setTimeout(r, 1500));
+    setFpStatus("Mendaftarkan sidik jari...");
     try {
-      if (window.PublicKeyCredential && location.protocol === "https:") {
-        const cred = await navigator.credentials.get({
-          publicKey: {
-            challenge: crypto.getRandomValues(new Uint8Array(32)),
+      const userId = new TextEncoder().encode(employee.id);
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: "GercepAI Kasir", id: location.hostname },
+          user: {
+            id: userId,
+            name: employee.kasir_token,
+            displayName: employee.nama,
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: "public-key" },
+            { alg: -257, type: "public-key" },
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
             userVerification: "required",
-            timeout: 30000,
-          }
-        });
-        if (cred) await doCheckin();
-        else await doCheckin();
-      } else {
-        await doCheckin();
-      }
-    } catch {
+            residentKey: "preferred",
+          },
+          timeout: 60000,
+        }
+      }) as PublicKeyCredential | null;
+
+      if (!credential) throw new Error("Credential null");
+
+      const credId = buf2b64(credential.rawId);
+      
+      // Simpan credential ID ke database
+      const { error } = await supabase
+        .from("employees")
+        .update({ webauthn_credential_id: credId })
+        .eq("id", employee.id);
+
+      if (error) throw error;
+
+      setEmployee(prev => ({ ...prev, webauthn_credential_id: credId }));
       await doCheckin();
+    } catch (e: unknown) {
+      console.error("Register error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("cancel") || msg.includes("abort") || msg.includes("NotAllowedError")) {
+        setFpStatus("Dibatalkan. Coba lagi.");
+      } else {
+        setFpStatus("Gagal daftar sidik jari: " + msg);
+      }
+      setScreen("auth");
+    }
+  };
+
+  // ===== WEBAUTHN LOGIN =====
+  const doLogin = async () => {
+    if (!window.PublicKeyCredential) {
+      setFpStatus("Browser tidak support WebAuthn.");
+      return;
+    }
+    setScreen("scanning");
+    setFpStatus("Verifikasi sidik jari...");
+    try {
+      const allowCreds = employee.webauthn_credential_id ? [{
+        id: b642buf(employee.webauthn_credential_id),
+        type: "public-key" as const,
+      }] : [];
+
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          userVerification: "required",
+          timeout: 60000,
+          allowCredentials: allowCreds,
+        }
+      }) as PublicKeyCredential | null;
+
+      if (!assertion) throw new Error("Assertion null");
+      await doCheckin();
+    } catch (e: unknown) {
+      console.error("Login error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("cancel") || msg.includes("abort") || msg.includes("NotAllowedError")) {
+        setFpStatus("Dibatalkan. Coba lagi.");
+      } else {
+        setFpStatus("Verifikasi gagal: " + msg);
+      }
+      setScreen("auth");
     }
   };
 
@@ -92,7 +179,6 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
     (activeTab === "Semua" || m.kategori === activeTab)
   );
   const categories = ["Semua", ...Array.from(new Set(menus.map(m => m.kategori || "Lainnya")))];
-
   const cartItems = Object.entries(cart).map(([id, qty]) => ({ menu: menus.find(m => m.id === id)!, qty })).filter(x => x.menu);
   const subtotal = cartItems.reduce((s, c) => s + c.menu.harga_jual * c.qty, 0);
   const totalHpp = cartItems.reduce((s, c) => s + calcHpp(c.menu) * c.qty, 0);
@@ -113,7 +199,7 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
     if (!cartItems.length) return;
     setLoading(true);
     const { data: order, error } = await supabase.from("orders").insert({
-      user_id: (await supabase.auth.getUser()).data.user?.id || employee.id,
+      user_id: employee.id,
       business_id: business.id,
       total, diskon: discNum, hpp: totalHpp, laba,
       metode_bayar: metodeBayar, catatan: catatan || null,
@@ -124,7 +210,8 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
 
     await supabase.from("order_items").insert(cartItems.map(c => ({
       order_id: order.id, menu_id: c.menu.id, qty: c.qty,
-      harga_jual: c.menu.harga_jual, hpp: calcHpp(c.menu), laba: (c.menu.harga_jual - calcHpp(c.menu)) * c.qty,
+      harga_jual: c.menu.harga_jual, hpp: calcHpp(c.menu),
+      laba: (c.menu.harga_jual - calcHpp(c.menu)) * c.qty,
     })));
 
     for (const item of cartItems) {
@@ -136,7 +223,7 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
     }
 
     await supabase.from("transactions").insert({
-      user_id: (await supabase.auth.getUser()).data.user?.id || employee.id,
+      user_id: employee.id,
       business_id: business.id,
       type: "pemasukan", scope: "bisnis",
       category: "Penjualan F&B",
@@ -145,38 +232,64 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
     });
 
     setLastOrder({ total, laba: Math.round(laba), disc: discNum, items: cartItems.length, metode: metodeBayar, note: catatan });
-    setStats(prev => ({
-      omzet: prev.omzet + total,
-      laba: prev.laba + Math.round(laba),
-      totalOrders: prev.totalOrders + 1,
-      foodCost: prev.omzet + total > 0 ? Math.round((prev.omzet * prev.foodCost / 100 + totalHpp) / (prev.omzet + total) * 100) : 0,
-    }));
+    setStats(prev => ({ ...prev, omzet: prev.omzet + total, laba: prev.laba + Math.round(laba), totalOrders: prev.totalOrders + 1 }));
     setLoading(false);
     setShowSuccess(true);
     setCart({}); setDiskon(""); setCatatan("");
   };
 
   const S = { background: "#070711", color: "#F0EFF8", fontFamily: "'Space Grotesk', sans-serif", minHeight: "100vh" };
-  const card = { background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,0.07)", borderRadius: "16px" };
-  const inputS = { width: "100%", padding: "10px 12px", borderRadius: "10px", border: "0.5px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#F0EFF8", fontSize: "13px", outline: "none", fontFamily: "'Space Grotesk', sans-serif" };
-  const btnGrad = { width: "100%", padding: "12px", borderRadius: "11px", border: "none", background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711", fontSize: "13px", fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" };
+  const btnGrad: React.CSSProperties = { width: "100%", padding: "13px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711", fontSize: "13px", fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" };
 
   if (screen === "auth") return (
-    <div style={{ ...S, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+    <div style={{ ...S, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem", background: "radial-gradient(ellipse at 50% 0%, rgba(45,212,191,.08) 0%, transparent 60%), #070711" }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap')`}</style>
       <div style={{ fontSize: "24px", fontWeight: 700, marginBottom: ".25rem" }}>GercepAI <span style={{ background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Kasir</span></div>
-      <div style={{ fontSize: "12px", color: "#5A5B7A", marginBottom: "2rem" }}>{business.name}</div>
-      <div style={{ ...card, padding: "2rem", width: "100%", maxWidth: "360px" }}>
+      <div style={{ fontSize: "12px", color: "#5A5B7A", marginBottom: "2.5rem" }}>{business.name}</div>
+      <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,0.07)", borderRadius: "20px", padding: "2rem", width: "100%", maxWidth: "360px" }}>
         <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-          <div style={{ width: "72px", height: "72px", borderRadius: "50%", background: "rgba(45,212,191,.1)", border: "0.5px solid rgba(45,212,191,.25)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto .75rem", fontSize: "28px", color: "#2DD4BF" }}>
-            <i className="ti ti-fingerprint" />
+          <div style={{ position: "relative", width: "90px", height: "90px", margin: "0 auto 1rem" }}>
+            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(45,212,191,.3)", animation: "fpRing 2s ease-in-out infinite" }} />
+            <div style={{ position: "absolute", inset: "8px", borderRadius: "50%", border: "1px solid rgba(45,212,191,.15)", animation: "fpRing 2s ease-in-out infinite 0.3s" }} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", color: "#2DD4BF" }}>
+              <i className="ti ti-fingerprint" />
+            </div>
           </div>
-          <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: ".25rem" }}>{employee.nama}</div>
-          <div style={{ fontSize: "12px", color: "#5A5B7A", marginBottom: "1rem" }}>{employee.jabatan || "Kasir"}</div>
+          <style>{`@keyframes fpRing{0%,100%{transform:scale(1);opacity:.4;border-color:rgba(45,212,191,.3)}50%{transform:scale(1.05);opacity:1;border-color:rgba(45,212,191,.8)}}`}</style>
+          <div style={{ fontSize: "17px", fontWeight: 600, marginBottom: ".25rem" }}>{employee.nama}</div>
+          <div style={{ fontSize: "12px", color: "#5A5B7A", marginBottom: "1rem" }}>{employee.jabatan || "Kasir"} · {business.name}</div>
         </div>
-        <button style={btnGrad as React.CSSProperties} onClick={doFingerprint}>
-          <i className="ti ti-fingerprint" /> Masuk dengan Sidik Jari
-        </button>
-        <button onClick={() => setShowSOP(true)} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#8B8AA0", fontSize: "13px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+
+        {authMode === "register" ? (
+          <>
+            <div style={{ background: "rgba(45,212,191,.06)", border: "0.5px solid rgba(45,212,191,.15)", borderRadius: "10px", padding: "10px 14px", marginBottom: "1.25rem" }}>
+              <div style={{ fontSize: "11px", color: "#5A5B7A", lineHeight: 1.7 }}>
+                <strong style={{ color: "#2DD4BF" }}>Pertama kali masuk?</strong> Daftarkan sidik jari kamu dulu. Selanjutnya cukup scan sidik jari untuk masuk kasir.
+              </div>
+            </div>
+            <button style={btnGrad} onClick={doRegister}>
+              <i className="ti ti-fingerprint" /> Daftarkan Sidik Jari
+            </button>
+          </>
+        ) : (
+          <>
+            <button style={btnGrad} onClick={doLogin}>
+              <i className="ti ti-fingerprint" /> Masuk dengan Sidik Jari
+            </button>
+            <button onClick={() => setAuthMode("register")} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#8B8AA0", fontSize: "12px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "8px" }}>
+              Daftar ulang sidik jari
+            </button>
+          </>
+        )}
+
+        {fpStatus && (
+          <div style={{ background: "rgba(236,72,153,.08)", border: "0.5px solid rgba(236,72,153,.2)", borderRadius: "8px", padding: "8px 12px", fontSize: "11px", color: "#EC4899", textAlign: "center", marginBottom: "8px" }}>
+            {fpStatus}
+          </div>
+        )}
+
+        <button onClick={() => setShowSOP(true)} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "0.5px solid rgba(255,255,255,.08)", background: "none", color: "#8B8AA0", fontSize: "12px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
           <i className="ti ti-book" /> Lihat SOP Kasir
         </button>
       </div>
@@ -185,29 +298,32 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
   );
 
   if (screen === "scanning") return (
-    <div style={{ ...S, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: "110px", height: "110px", borderRadius: "50%", border: "2px solid rgba(45,212,191,.6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.5rem", animation: "pulse 1.2s ease-in-out infinite", fontSize: "40px", color: "#2DD4BF" }}>
+    <div style={{ ...S, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse at 50% 50%, rgba(45,212,191,.06) 0%, transparent 60%), #070711" }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+      <div style={{ width: "110px", height: "110px", borderRadius: "50%", border: "2px solid rgba(45,212,191,.5)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.5rem", fontSize: "42px", color: "#2DD4BF", position: "relative" }}>
+        <style>{`@keyframes scanPulse{0%,100%{box-shadow:0 0 0 0 rgba(45,212,191,.2)}50%{box-shadow:0 0 0 24px rgba(45,212,191,.03)}}`}</style>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", animation: "scanPulse 1.2s ease-in-out infinite" }} />
         <i className="ti ti-fingerprint" />
       </div>
-      <div style={{ fontSize: "16px", fontWeight: 500 }}>Mendeteksi sidik jari...</div>
-      <div style={{ fontSize: "12px", color: "#5A5B7A", marginTop: ".5rem" }}>Tempelkan jari ke sensor</div>
-      <style>{`@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(45,212,191,.2)}50%{box-shadow:0 0 0 20px rgba(45,212,191,.03)}}`}</style>
+      <div style={{ fontSize: "16px", fontWeight: 500, marginBottom: ".5rem" }}>{fpStatus || "Mendeteksi sidik jari..."}</div>
+      <div style={{ fontSize: "12px", color: "#5A5B7A" }}>Ikuti instruksi di perangkat kamu</div>
     </div>
   );
 
   if (screen === "welcome") return (
-    <div style={{ ...S, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div style={{ ...card, padding: "2rem", width: "100%", maxWidth: "340px", textAlign: "center" }}>
-        <div style={{ width: "60px", height: "60px", borderRadius: "50%", background: "rgba(45,212,191,.1)", border: "0.5px solid rgba(45,212,191,.25)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem", fontSize: "24px", color: "#2DD4BF" }}>✓</div>
+    <div style={{ ...S, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem", background: "radial-gradient(ellipse at 50% 30%, rgba(45,212,191,.1) 0%, transparent 60%), #070711" }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+      <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(45,212,191,.2)", borderRadius: "20px", padding: "2rem", width: "100%", maxWidth: "340px", textAlign: "center" }}>
+        <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(45,212,191,.12)", border: "0.5px solid rgba(45,212,191,.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem", fontSize: "26px", color: "#2DD4BF" }}>✓</div>
         <div style={{ fontSize: "15px", fontWeight: 600, color: "#2DD4BF", marginBottom: ".25rem" }}>Selamat datang!</div>
         <div style={{ fontSize: "18px", fontWeight: 600, marginBottom: ".2rem" }}>{employee.nama}</div>
         <div style={{ fontSize: "12px", color: "#5A5B7A", marginBottom: ".75rem" }}>{employee.jabatan}</div>
-        <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "14px", color: "#2DD4BF", marginBottom: "1rem" }}>{clock}</div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 12px", borderRadius: "20px", fontSize: "11px", background: "rgba(45,212,191,.1)", color: "#2DD4BF", border: "0.5px solid rgba(45,212,191,.25)", marginBottom: "1.25rem" }}>
-          ● Check-in tercatat otomatis
+        <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "14px", color: "#2DD4BF", marginBottom: ".5rem" }}>{clock}</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 12px", borderRadius: "20px", fontSize: "11px", background: "rgba(45,212,191,.1)", color: "#2DD4BF", border: "0.5px solid rgba(45,212,191,.25)", marginBottom: "1.5rem" }}>
+          ● Check-in otomatis tercatat
         </div>
         <br /><br />
-        <button style={btnGrad as React.CSSProperties} onClick={() => setScreen("kasir")}>
+        <button style={btnGrad} onClick={() => setScreen("kasir")}>
           <i className="ti ti-cash-register" /> Buka Kasir
         </button>
       </div>
@@ -219,7 +335,6 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');body{margin:0}`}</style>
 
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "0.5px solid rgba(255,255,255,.06)", background: "#0D0D1A", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ fontSize: "15px", fontWeight: 700 }}>GercepAI <span style={{ background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Kasir</span></div>
@@ -233,7 +348,6 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
         </div>
       </div>
 
-      {/* KPI */}
       <div style={{ display: "flex", gap: "8px", padding: "8px 14px", borderBottom: "0.5px solid rgba(255,255,255,.05)", flexShrink: 0 }}>
         {[
           { l: "Omzet", v: "Rp" + (stats.omzet >= 1000 ? Math.round(stats.omzet/1000) + "rb" : stats.omzet), c: "#2DD4BF" },
@@ -248,9 +362,7 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
         ))}
       </div>
 
-      {/* Body */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Menu */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", borderRight: "0.5px solid rgba(255,255,255,.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", borderBottom: "0.5px solid rgba(255,255,255,.05)" }}>
             <i className="ti ti-search" style={{ fontSize: "13px", color: "#3A3B52" }} />
@@ -262,7 +374,9 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
             ))}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "8px", padding: "10px 12px", overflowY: "auto", flex: 1 }}>
-            {filtered.map(m => {
+            {filtered.length === 0 ? (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "3rem", color: "#3A3B52", fontSize: "12px" }}>Belum ada menu aktif</div>
+            ) : filtered.map(m => {
               const qty = cart[m.id] || 0;
               const color = KATEGORI_COLOR[m.kategori || ""] || "#8B8AA0";
               const icon = KATEGORI_ICON[m.kategori || ""] || "ti-dots";
@@ -290,7 +404,6 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
           </div>
         </div>
 
-        {/* Cart */}
         <div style={{ width: "255px", display: "flex", flexDirection: "column", overflow: "hidden", background: "#0D0D1A" }}>
           <div style={{ padding: "10px 14px", borderBottom: "0.5px solid rgba(255,255,255,.06)" }}>
             <div style={{ fontSize: "10px", color: "#2DD4BF", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: "1px" }}>Order aktif</div>
@@ -328,8 +441,8 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
                 </button>
               ))}
             </div>
-            <input value={catatan} onChange={e => setCatatan(e.target.value)} placeholder="Catatan (meja, nama...)" style={{ ...inputS, fontSize: "11px", padding: "6px 9px", marginBottom: "7px" }} />
-            <button onClick={handleProses} disabled={loading || !cartItems.length} style={{ ...btnGrad, opacity: loading || !cartItems.length ? 0.35 : 1, cursor: loading || !cartItems.length ? "not-allowed" : "pointer" } as React.CSSProperties}>
+            <input value={catatan} onChange={e => setCatatan(e.target.value)} placeholder="Catatan (meja, nama...)" style={{ width: "100%", fontSize: "11px", padding: "6px 9px", borderRadius: "7px", border: "0.5px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "#F0EFF8", fontFamily: "'Space Grotesk', sans-serif", outline: "none", marginBottom: "7px" }} />
+            <button onClick={handleProses} disabled={loading || !cartItems.length} style={{ ...btnGrad, opacity: loading || !cartItems.length ? 0.35 : 1, cursor: loading || !cartItems.length ? "not-allowed" : "pointer" }}>
               {loading ? "Memproses..." : `Proses — Rp${total.toLocaleString("id-ID")}`}
             </button>
             <button onClick={() => { setCart({}); setDiskon(""); setCatatan(""); }} style={{ width: "100%", padding: "6px", borderRadius: "8px", border: "0.5px solid rgba(236,72,153,.2)", background: "rgba(236,72,153,.04)", color: "#EC4899", fontSize: "11px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Reset order</button>
@@ -337,40 +450,36 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
         </div>
       </div>
 
-      {/* Success Modal */}
       {showSuccess && lastOrder && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(7,7,17,.96)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "1rem" }}>
           <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(45,212,191,.25)", borderRadius: "20px", padding: "1.75rem", maxWidth: "320px", width: "100%", textAlign: "center" }}>
             <div style={{ width: "60px", height: "60px", borderRadius: "50%", background: "rgba(45,212,191,.1)", border: "0.5px solid rgba(45,212,191,.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto .75rem", fontSize: "24px", color: "#2DD4BF" }}>✓</div>
             <div style={{ fontSize: "15px", fontWeight: 600, color: "#2DD4BF", marginBottom: ".25rem" }}>Transaksi berhasil!</div>
             <div style={{ fontSize: "11px", color: "#5A5B7A", marginBottom: "1.25rem" }}>Stok berkurang otomatis · Keuangan tercatat</div>
-            {[["Kasir", employee.nama], ["Item", lastOrder.items + " item"], ["Total", "Rp" + lastOrder.total.toLocaleString("id-ID")], ["Diskon", "Rp" + lastOrder.disc.toLocaleString("id-ID")], ["Metode", lastOrder.metode], ["Laba", "Rp" + lastOrder.laba.toLocaleString("id-ID")], ["Catatan", lastOrder.note || "-"]].map(([k, v]) => (
+            {[["Total", "Rp" + lastOrder.total.toLocaleString("id-ID")], ["Diskon", "Rp" + lastOrder.disc.toLocaleString("id-ID")], ["Metode", lastOrder.metode], ["Laba", "Rp" + lastOrder.laba.toLocaleString("id-ID")]].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "4px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
                 <span style={{ color: "#5A5B7A" }}>{k}</span>
                 <span style={{ fontFamily: "JetBrains Mono, monospace", color: k === "Total" ? "#2DD4BF" : "#F0EFF8", fontWeight: k === "Total" ? 600 : 400 }}>{v}</span>
               </div>
             ))}
             <div style={{ height: ".5px", background: "rgba(255,255,255,.06)", margin: "10px 0" }} />
-            <button onClick={() => setShowSuccess(false)} style={btnGrad as React.CSSProperties}>+ Order Berikutnya</button>
+            <button onClick={() => setShowSuccess(false)} style={btnGrad}>+ Order Berikutnya</button>
           </div>
         </div>
       )}
 
-      {/* Checkout Modal */}
       {showCheckout && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(7,7,17,.96)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "1rem" }}>
           <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(236,72,153,.25)", borderRadius: "20px", padding: "1.75rem", maxWidth: "320px", width: "100%", textAlign: "center" }}>
-            <div style={{ width: "60px", height: "60px", borderRadius: "50%", background: "rgba(236,72,153,.1)", border: "0.5px solid rgba(236,72,153,.25)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto .75rem", fontSize: "24px", color: "#EC4899" }}>↗</div>
-            <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: ".25rem" }}>Check-out Shift</div>
-            <div style={{ fontSize: "12px", color: "#5A5B7A", marginBottom: "1.25rem" }}>Ringkasan shift kamu hari ini</div>
+            <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: ".5rem" }}>Check-out Shift</div>
             {[["Kasir", employee.nama], ["Total order", stats.totalOrders.toString()], ["Total omzet", "Rp" + stats.omzet.toLocaleString("id-ID")], ["Total laba", "Rp" + stats.laba.toLocaleString("id-ID")]].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "4px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
                 <span style={{ color: "#5A5B7A" }}>{k}</span>
-                <span style={{ fontFamily: "JetBrains Mono, monospace", color: k.includes("omzet") || k.includes("laba") ? "#2DD4BF" : "#F0EFF8" }}>{v}</span>
+                <span style={{ fontFamily: "JetBrains Mono, monospace", color: "#F0EFF8" }}>{v}</span>
               </div>
             ))}
             <div style={{ height: ".5px", background: "rgba(255,255,255,.06)", margin: "10px 0" }} />
-            <button onClick={doCheckout} style={{ ...btnGrad, background: "linear-gradient(135deg,#EC4899,#8B5CF6)" } as React.CSSProperties}>Konfirmasi Check-out</button>
+            <button onClick={doCheckout} style={{ ...btnGrad, background: "linear-gradient(135deg,#EC4899,#8B5CF6)" }}>Konfirmasi Check-out</button>
             <button onClick={() => setShowCheckout(false)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "0.5px solid rgba(255,255,255,.08)", background: "none", color: "#8B8AA0", fontSize: "12px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Batal</button>
           </div>
         </div>
@@ -382,7 +491,6 @@ export default function KasirPublicClient({ employee, business, menus, initialSt
 }
 
 function SOPModal({ onClose }: { onClose: () => void }) {
-  const S = (bg: string, border: string, color: string) => ({ background: bg, border: "0.5px solid " + border, borderRadius: "8px", padding: "10px 12px", fontSize: "11px", color, display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: ".75rem" });
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(7,7,17,.97)", zIndex: 300, overflowY: "auto", padding: "1.5rem" }}>
       <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.07)", borderRadius: "16px", padding: "1.5rem", maxWidth: "560px", margin: "0 auto" }}>
@@ -390,11 +498,10 @@ function SOPModal({ onClose }: { onClose: () => void }) {
           <div><div style={{ fontSize: "16px", fontWeight: 600, color: "#2DD4BF" }}>SOP Kasir GercepAI</div><div style={{ fontSize: "12px", color: "#5A5B7A", marginTop: "2px" }}>Standar Operasional Prosedur · F&B</div></div>
           <button onClick={onClose} style={{ background: "none", border: "0.5px solid rgba(255,255,255,.1)", color: "#8B8AA0", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Tutup</button>
         </div>
-        <div style={S("rgba(45,212,191,.06)", "rgba(45,212,191,.15)", "#2DD4BF")}>ℹ️ Baca SOP ini sebelum memulai shift. Patuhi semua prosedur untuk menjaga kualitas pelayanan.</div>
         {[
-          { title: "🌅 Membuka Kasir", steps: ["Pilih nama kamu, lakukan verifikasi sidik jari","Periksa stok bahan baku di Inventory","Cek menu aktif — pastikan tidak ada bahan habis","Siap menerima order!"] },
-          { title: "💳 Melayani Pelanggan", steps: ["Sapa pelanggan, tanyakan pesanan","Pilih menu di aplikasi — klik kartu atau tombol +","Cek ringkasan order sebelum proses","Tanyakan metode bayar: Tunai / QRIS / Transfer","Input diskon jika ada promo","Klik Proses — sistem otomatis catat & kurangi stok","Ucapkan terima kasih"] },
-          { title: "🌙 Menutup Kasir", steps: ["Pastikan semua transaksi sudah diproses","Klik Check-out di pojok kanan atas","Cek ringkasan shift kamu","Konfirmasi Check-out — jam keluar tercatat","Laporkan ke owner jika ada masalah"] },
+          { title: "🌅 Membuka Kasir", steps: ["Buka link kasir di HP kamu", "Daftarkan sidik jari (pertama kali) atau scan sidik jari", "Check-in otomatis tercatat", "Siap terima order!"] },
+          { title: "💳 Melayani Pelanggan", steps: ["Sapa pelanggan, tanyakan pesanan", "Pilih menu di aplikasi", "Cek ringkasan order", "Tanyakan metode bayar", "Input diskon jika ada", "Klik Proses — stok berkurang otomatis", "Ucapkan terima kasih"] },
+          { title: "🌙 Menutup Kasir", steps: ["Pastikan semua transaksi selesai", "Klik Check-out di atas", "Cek ringkasan shift", "Konfirmasi Check-out"] },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: "1.25rem" }}>
             <div style={{ fontSize: "11px", fontWeight: 600, color: "#8B8AA0", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: ".6rem" }}>{section.title}</div>
@@ -406,7 +513,9 @@ function SOPModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         ))}
-        <div style={S("rgba(245,158,11,.06)", "rgba(245,158,11,.2)", "#F59E0B")}>⚠️ JANGAN proses transaksi tanpa memastikan pembayaran diterima. Semua transaksi terekam di dashboard owner.</div>
+        <div style={{ background: "rgba(245,158,11,.06)", border: "0.5px solid rgba(245,158,11,.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "11px", color: "#F59E0B", marginBottom: ".75rem" }}>
+          ⚠️ Jangan proses transaksi sebelum pembayaran diterima. Semua transaksi terekam di dashboard owner.
+        </div>
         <button onClick={onClose} style={{ width: "100%", padding: "11px", borderRadius: "10px", border: "none", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", color: "#070711", fontSize: "13px", fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>✓ Mengerti, Mulai Shift</button>
       </div>
     </div>
