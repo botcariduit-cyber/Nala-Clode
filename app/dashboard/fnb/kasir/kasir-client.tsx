@@ -205,9 +205,9 @@ export default function KasirClient({ menus, employees, userId, businessId, omze
               </button>
             ))}
           </div>
-          <div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4">
             {filtered.length === 0 ? (
-              <p className="text-xs text-[#5A5B6A] text-center py-8">Tidak ada menu.</p>
+              <p className="text-xs text-[#5A5B6A] text-center py-8 col-span-3">Tidak ada menu.</p>
             ) : filtered.map(m => {
               const hpp = calcHpp(m);
               const margin = m.harga_jual > 0 ? Math.round((m.harga_jual - hpp) / m.harga_jual * 100) : 0;
@@ -216,26 +216,30 @@ export default function KasirClient({ menus, employees, userId, businessId, omze
               const color = KATEGORI_COLOR[kat] || "#8B8AA0";
               const icon = KATEGORI_ICON[kat] || "ti-dots";
               return (
-                <div key={m.id} className="flex items-center px-4 py-3 border-b border-white/[0.04] last:border-0 gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + "15" }}>
-                    <i className={"ti " + icon} style={{ fontSize: "16px", color }} aria-hidden="true"></i>
+                <div key={m.id} className="bg-[#0A0A12] border rounded-2xl overflow-hidden cursor-pointer"
+                  style={{ borderColor: qty > 0 ? "rgba(45,212,191,.4)" : "rgba(255,255,255,0.06)" }}
+                  onClick={() => addToCart(m)}>
+                  <div className="flex items-center justify-center py-6" style={{ background: color + "10" }}>
+                    <i className={"ti " + icon} style={{ fontSize: "36px", color }} aria-hidden="true"></i>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="text-sm font-medium text-[#F0EFF8]">{m.nama}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: color + "15", color }}>{kat}</span>
+                  <div className="p-3">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full mb-2 inline-block" style={{ background: color + "15", color }}>{kat}</span>
+                    <p className="text-sm font-medium text-[#F0EFF8] mb-1">{m.nama}</p>
+                    <p className="text-[10px] text-[#5A5B7A] mb-2">HPP Rp{Math.round(hpp).toLocaleString("id-ID")} · {margin}%</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold" style={{ color: "#2DD4BF", fontFamily: "JetBrains Mono, monospace" }}>Rp{m.harga_jual.toLocaleString("id-ID")}</p>
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => removeFromCart(m.id)} className="w-6 h-6 rounded-lg flex items-center justify-center border"
+                          style={qty > 0 ? { borderColor: "rgba(45,212,191,.4)", color: "#2DD4BF", background: "rgba(45,212,191,.08)" } : { borderColor: "rgba(255,255,255,.08)", color: "#5A5B7A" }}>
+                          <Minus size={10} />
+                        </button>
+                        <span className="text-xs font-medium w-5 text-center" style={{ color: qty > 0 ? "#2DD4BF" : "#3A3B52", fontFamily: "monospace" }}>{qty}</span>
+                        <button onClick={() => addToCart(m)} className="w-6 h-6 rounded-lg flex items-center justify-center border"
+                          style={{ borderColor: "rgba(45,212,191,.4)", color: "#2DD4BF", background: "rgba(45,212,191,.08)" }}>
+                          <Plus size={10} />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-[10px] text-[#5A5B7A]">HPP Rp{Math.round(hpp).toLocaleString("id-ID")} · margin {margin}%</p>
-                    <p className="text-sm font-medium mt-0.5" style={{ color: "#2DD4BF", fontFamily: "JetBrains Mono, monospace" }}>Rp{m.harga_jual.toLocaleString("id-ID")}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => removeFromCart(m.id)} className="w-7 h-7 rounded-lg flex items-center justify-center border" style={qty > 0 ? { borderColor: "rgba(45,212,191,.4)", color: "#2DD4BF", background: "rgba(45,212,191,.08)" } : { borderColor: "rgba(255,255,255,.08)", color: "#5A5B7A" }}>
-                      <Minus size={12} />
-                    </button>
-                    <span className="text-sm font-medium w-5 text-center" style={{ color: qty > 0 ? "#F0EFF8" : "#3A3B52", fontFamily: "monospace" }}>{qty}</span>
-                    <button onClick={() => addToCart(m)} className="w-7 h-7 rounded-lg flex items-center justify-center border" style={{ borderColor: "rgba(45,212,191,.4)", color: "#2DD4BF", background: "rgba(45,212,191,.08)" }}>
-                      <Plus size={12} />
-                    </button>
                   </div>
                 </div>
               );
