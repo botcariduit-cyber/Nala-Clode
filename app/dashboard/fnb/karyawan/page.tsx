@@ -18,8 +18,8 @@ export default async function KaryawanPage() {
     return <div className="px-8 py-8 text-[#8B8AA0]">Modul ini hanya tersedia untuk bisnis F&B / Kuliner.</div>;
   }
 
-  const { data: members } = await supabase
-    .from("business_members")
+  const { data: employees } = await supabase
+    .from("employees")
     .select("*")
     .eq("business_id", business.id)
     .order("created_at", { ascending: false });
@@ -30,8 +30,8 @@ export default async function KaryawanPage() {
         <h1 className="text-2xl font-semibold">Karyawan</h1>
         {business?.name && <span className="text-xs text-[#8B8AA0] bg-white/5 px-3 py-1 rounded-full">{business.name}</span>}
       </div>
-      <p className="text-[#8B8AA0] mb-6">Invite karyawan — mereka hanya bisa akses Kasir.</p>
-      <KaryawanClient members={members || []} userId={user!.id} businessId={business.id} />
+      <p className="text-[#8B8AA0] mb-6">Kelola karyawan — bagikan link kasir ke HP mereka.</p>
+      <KaryawanClient employees={employees || []} userId={user!.id} businessId={business.id} />
     </div>
   );
 }
