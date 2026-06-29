@@ -1,9 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import KasirPublicClient from "./kasir-public-client";
 
 export default async function KasirPublicPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const supabase = await createClient();
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const { data: employee } = await supabase
     .from("employees")
