@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, AlertTriangle, Upload, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
 
 type Product = { id: string; name: string; cost: number | null; stock: number; category: string | null };
 type MenuRecipe = { id: string; quantity: number; unit: string; products: Product };
@@ -27,15 +27,46 @@ type FormMenuProps = {
   fHarga: string; setFHarga: (v: string) => void;
   fStatus: string; setFStatus: (v: string) => void;
   fYield: string; setFYield: (v: string) => void;
+  fFotoUrl: string; setFFotoUrl: (v: string) => void;
+  uploadingFoto: boolean;
+  onUploadFoto: (file: File) => void;
   loading: boolean;
   onSave: () => void; onCancel: () => void;
 };
 
-function FormMenu({ editMenu, fNama, setFNama, fKategori, setFKategori, fHarga, setFHarga, fStatus, setFStatus, fYield, setFYield, loading, onSave, onCancel }: FormMenuProps) {
+function FormMenu({ editMenu, fNama, setFNama, fKategori, setFKategori, fHarga, setFHarga, fStatus, setFStatus, fYield, setFYield, fFotoUrl, setFFotoUrl, uploadingFoto, onUploadFoto, loading, onSave, onCancel }: FormMenuProps) {
+  const [fotoMode, setFotoMode] = useState<"upload" | "url">("upload");
+  const fileInputRef = useState<HTMLInputElement | null>(null);
   return (
     <div className="bg-[#0A0A12] border border-[#2DD4BF]/20 rounded-xl p-4 mb-4">
       <p className="text-xs font-medium text-[#2DD4BF] mb-3">{editMenu ? "Edit Menu" : "Tambah Menu Baru"}</p>
       <div className="flex flex-col gap-2">
+        <div className="flex gap-2 mb-1">
+          <button type="button" onClick={() => setFotoMode("upload")} className={"flex-1 text-xs py-1.5 rounded-lg border flex items-center justify-center gap-1.5 " + (fotoMode === "upload" ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#2DD4BF]" : "border-white/10 text-[#8B8AA0]")}>
+            <Upload size={12} /> Upload Foto
+          </button>
+          <button type="button" onClick={() => setFotoMode("url")} className={"flex-1 text-xs py-1.5 rounded-lg border flex items-center justify-center gap-1.5 " + (fotoMode === "url" ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#2DD4BF]" : "border-white/10 text-[#8B8AA0]")}>
+            <LinkIcon size={12} /> URL Foto
+          </button>
+        </div>
+
+        {fotoMode === "upload" ? (
+          <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-white/10 rounded-lg py-6 cursor-pointer hover:border-[#2DD4BF]/30 transition-colors">
+            {fFotoUrl ? (
+              <img src={fFotoUrl} alt="Preview" className="w-20 h-20 object-cover rounded-lg" />
+            ) : (
+              <ImageIcon size={28} className="text-[#3A3B52]" />
+            )}
+            <span className="text-xs text-[#8B8AA0]">{uploadingFoto ? "Mengupload..." : fFotoUrl ? "Klik untuk ganti foto" : "Klik untuk upload foto"}</span>
+            <input type="file" accept="image/*" className="hidden" disabled={uploadingFoto} onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFoto(f); }} />
+          </label>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <input className={inputCls} placeholder="https://contoh.com/foto-menu.jpg" value={fFotoUrl} onChange={e => setFFotoUrl(e.target.value)} />
+            {fFotoUrl && <img src={fFotoUrl} alt="Preview" className="w-20 h-20 object-cover rounded-lg" onError={e => (e.target as HTMLImageElement).style.display = "none"} />}
+          </div>
+        )}
+
         <input className={inputCls} placeholder="Nama menu" value={fNama} onChange={e => setFNama(e.target.value)} />
         <div className="grid grid-cols-2 gap-2">
           <select className={inputCls} value={fKategori} onChange={e => setFKategori(e.target.value)}>
@@ -152,12 +183,29 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
   const [fHarga, setFHarga] = useState("");
   const [fStatus, setFStatus] = useState("aktif");
   const [fYield, setFYield] = useState("1");
+  const [fFotoUrl, setFFotoUrl] = useState("");
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   const [fProductId, setFProductId] = useState("");
   const [fQty, setFQty] = useState("");
   const [fUnit, setFUnit] = useState("gr");
 
-  const resetMenuForm = () => { setFNama(""); setFKategori("Makanan"); setFHarga(""); setFStatus("aktif"); setFYield("1"); setEditMenu(null); };
+  const resetMenuForm = () => { setFNama(""); setFKategori("Makanan"); setFHarga(""); setFStatus("aktif"); setFYield("1"); setFFotoUrl(""); setEditMenu(null); };
+
+  const handleUploadFoto = async (file: File) => {
+    setUploadingFoto(true);
+    const ext = file.name.split(".").pop();
+    const fileName = `${userId}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("menu-photos").upload(fileName, file);
+    if (error) {
+      alert("Gagal upload foto: " + error.message);
+      setUploadingFoto(false);
+      return;
+    }
+    const { data } = supabase.storage.from("menu-photos").getPublicUrl(fileName);
+    setFFotoUrl(data.publicUrl);
+    setUploadingFoto(false);
+  };
   const resetResepForm = () => { setFProductId(""); setFQty(""); setFUnit("gr"); };
 
   const filtered = activeTab === "Semua" ? menus : menus.filter(m => m.kategori === activeTab);
@@ -165,7 +213,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
   const handleSaveMenu = async () => {
     if (!fNama || !fHarga) return;
     setMenuLoading(true);
-    const payload = { user_id: userId, business_id: businessId, nama: fNama, kategori: fKategori, harga_jual: Number(fHarga), status: fStatus, yield_quantity: Number(fYield) || 1 };
+    const payload = { user_id: userId, business_id: businessId, nama: fNama, kategori: fKategori, harga_jual: Number(fHarga), status: fStatus, yield_quantity: Number(fYield) || 1, foto_url: fFotoUrl || null };
     if (editMenu) { await supabase.from("menus").update(payload).eq("id", editMenu.id); }
     else { await supabase.from("menus").insert(payload); }
     setMenuLoading(false); resetMenuForm(); setShowMenuForm(false); router.refresh();
@@ -192,7 +240,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
 
   const startEdit = (m: Menu) => {
     setEditMenu(m); setFNama(m.nama); setFKategori(m.kategori || "Makanan");
-    setFHarga(m.harga_jual.toString()); setFStatus(m.status); setFYield((m.yield_quantity || 1).toString()); setShowMenuForm(true);
+    setFHarga(m.harga_jual.toString()); setFStatus(m.status); setFYield((m.yield_quantity || 1).toString()); setFFotoUrl(m.foto_url || ""); setShowMenuForm(true);
   };
 
   const totalMenu = menus.length;
@@ -231,7 +279,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
 
         {showMenuForm && (
           <div className="px-4 py-3 border-b border-white/10">
-            <FormMenu editMenu={editMenu} fNama={fNama} setFNama={setFNama} fKategori={fKategori} setFKategori={setFKategori} fHarga={fHarga} setFHarga={setFHarga} fStatus={fStatus} setFStatus={setFStatus} fYield={fYield} setFYield={setFYield} loading={menuLoading} onSave={handleSaveMenu} onCancel={() => { resetMenuForm(); setShowMenuForm(false); }} />
+            <FormMenu editMenu={editMenu} fNama={fNama} setFNama={setFNama} fKategori={fKategori} setFKategori={setFKategori} fHarga={fHarga} setFHarga={setFHarga} fStatus={fStatus} setFStatus={setFStatus} fYield={fYield} setFYield={setFYield} fFotoUrl={fFotoUrl} setFFotoUrl={setFFotoUrl} uploadingFoto={uploadingFoto} onUploadFoto={handleUploadFoto} loading={menuLoading} onSave={handleSaveMenu} onCancel={() => { resetMenuForm(); setShowMenuForm(false); }} />
           </div>
         )}
 

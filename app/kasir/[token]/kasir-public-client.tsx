@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; menu_recipes: { id: string; quantity: number; unit: string; products: { id: string; name: string; cost: number | null; stock: number } }[] };
+type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; foto_url: string | null; menu_recipes: { id: string; quantity: number; unit: string; products: { id: string; name: string; cost: number | null; stock: number } }[] };
 type Employee = { id: string; nama: string; jabatan: string | null; kasir_token: string; webauthn_credential_id: string | null };
 type Business = { id: string; name: string; type: string };
 type Stats = { omzet: number; laba: number; totalOrders: number; foodCost: number };
