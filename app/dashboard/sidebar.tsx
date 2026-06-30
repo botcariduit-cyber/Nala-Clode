@@ -3,6 +3,7 @@ import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, Shopp
 import BusinessSwitcher from "./business-switcher";
 
 const baseModules = [
+  { name: "Dashboard Owner", href: "/dashboard/owner", icon: Gauge },
   { name: "Gercep Chat", href: "/dashboard/chat", icon: MessageCircle },
   { name: "Keuangan Pribadi", href: "/dashboard/keuangan-pribadi", icon: Wallet },
   { name: "Keuangan Bisnis", href: "/dashboard/keuangan-bisnis", icon: Store },
@@ -21,7 +22,6 @@ const fnb_modules = [
 ];
 
 const comingSoonModules = [
-  { name: "Dashboard Owner", icon: Gauge },
   { name: "Smart Profit Calculator", icon: Calculator },
   { name: "Marketplace Center", icon: ShoppingCart },
   { name: "CRM Pelanggan", icon: Users },
