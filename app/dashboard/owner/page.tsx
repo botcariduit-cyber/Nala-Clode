@@ -97,7 +97,7 @@ export default async function DashboardOwnerPage() {
   );
 
   return (
-    <div className="px-3 sm:px-6 py-4 sm:py-6">
+    <div className="px-2 sm:px-4 py-4 sm:py-6">
       <DashboardOwnerClient businesses={businessData} bulan={bulan} tahun={tahun} userId={user!.id} />
     </div>
   );

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Search, ChevronDown, ChevronRight, X, Pencil, Lightbulb, AlertTriangle, Clock, TrendingUp, TrendingDown, Printer, Plus, FileSpreadsheet, FileText, Download, Eye } from "lucide-react";
+import { Search, ChevronDown, ChevronRight, X, Pencil, Lightbulb, AlertTriangle, Clock, TrendingUp, TrendingDown, Printer, Plus, FileSpreadsheet, FileText, Download, Eye, Calendar } from "lucide-react";
 
 type Business = {
   id: string; name: string; type: string;
@@ -29,6 +29,10 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
   const [savingTarget, setSavingTarget] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [rangeFilter, setRangeFilter] = useState("month");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [customFrom, setCustomFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [customTo, setCustomTo] = useState(new Date().toISOString().split("T")[0]);
 
   const totalOmzet = businesses.reduce((s, b) => s + b.omzetBulan, 0);
   const totalLaba = businesses.reduce((s, b) => s + Math.max(0, b.labaBulan), 0);
@@ -84,7 +88,7 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
   const expColors: Record<string, string> = { "Pembelian Bahan": "#F87171", "Bahan Baku": "#F87171", "Penjualan F&B": "#34D399", "Operasional": "#FBBF24", "Gaji": "#60A5FA", "Biaya Produksi": "#A78BFA" };
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto" style={{ fontFamily: "Inter, sans-serif" }}>
+    <div className="w-full" style={{ fontFamily: "Inter, sans-serif" }}>
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
@@ -95,7 +99,7 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
           <div className="relative">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari bisnis..."
-              className="bg-[#11151C] border border-white/[0.08] rounded-lg pl-7 pr-2.5 py-1.5 text-xs text-[#E4E7EC] placeholder:text-[#4B5563] outline-none w-32 sm:w-36" />
+              className="bg-[#11151C] border border-white/[0.08] rounded-lg pl-7 pr-2.5 py-1.5 text-xs text-[#E4E7EC] placeholder:text-[#4B5563] outline-none w-28 sm:w-36" />
           </div>
           <button className="text-xs px-3 py-1.5 rounded-lg bg-[#F4F5F7] text-[#0B0E14] font-semibold flex items-center gap-1.5">
             <Plus size={11} /> Bisnis
@@ -105,6 +109,37 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
           </button>
         </div>
       </div>
+
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {[
+          { key: "today", label: "Hari ini" },
+          { key: "month", label: "Bulan ini" },
+          { key: "year", label: "Tahun ini" },
+        ].map(f => (
+          <button key={f.key} onClick={() => setRangeFilter(f.key)}
+            className={"text-xs px-3 py-1.5 rounded-lg border whitespace-nowrap flex-shrink-0 " + (rangeFilter === f.key ? "bg-[#1A2332] border-[#2563EB] text-[#60A5FA]" : "bg-[#11151C] border-white/[0.08] text-[#9CA3AF]")}>
+            {f.label}
+          </button>
+        ))}
+        <button onClick={() => setShowDatePicker(!showDatePicker)}
+          className={"text-xs px-3 py-1.5 rounded-lg border whitespace-nowrap flex items-center gap-1.5 flex-shrink-0 " + (rangeFilter === "custom" ? "bg-[#1A2332] border-[#2563EB] text-[#60A5FA]" : "bg-[#11151C] border-white/[0.08] text-[#9CA3AF]")}>
+          <Calendar size={11} /> Custom
+        </button>
+      </div>
+
+      {showDatePicker && (
+        <div className="bg-[#161B26] border border-white/10 rounded-xl p-3.5 w-60 mb-4">
+          <label className="text-[10px] text-[#6B7280] block mb-1 uppercase tracking-wide">Dari tanggal</label>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+            className="w-full bg-[#0B0E14] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs text-[#E4E7EC] mb-2.5" style={{ colorScheme: "dark" }} />
+          <label className="text-[10px] text-[#6B7280] block mb-1 uppercase tracking-wide">Sampai tanggal</label>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+            className="w-full bg-[#0B0E14] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs text-[#E4E7EC] mb-2.5" style={{ colorScheme: "dark" }} />
+          <button onClick={() => { setRangeFilter("custom"); setShowDatePicker(false); }} className="w-full bg-[#2563EB] text-white text-xs py-1.5 rounded-lg font-semibold">
+            Terapkan
+          </button>
+        </div>
+      )}
 
       <Section title="Insight otomatis" collapsed={!!collapsed.insight} onToggle={() => toggleSection("insight")}>
         <div className="bg-gradient-to-br from-[#2563EB]/[0.08] to-[#2563EB]/[0.02] border border-[#2563EB]/20 rounded-xl p-4 flex gap-3">
