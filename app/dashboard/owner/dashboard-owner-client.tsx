@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Search, ChevronDown, ChevronRight, X, Pencil, Lightbulb, AlertTriangle, Clock, TrendingUp, TrendingDown, Printer, Plus, FileSpreadsheet, FileText, Download, Eye, Calendar } from "lucide-react";
 
@@ -29,10 +29,20 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
   const [savingTarget, setSavingTarget] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-  const [rangeFilter, setRangeFilter] = useState("month");
+  const searchParams = useSearchParams();
+  const rangeFilter = searchParams.get("range") || "month";
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [customFrom, setCustomFrom] = useState(new Date().toISOString().split("T")[0]);
-  const [customTo, setCustomTo] = useState(new Date().toISOString().split("T")[0]);
+  const [customFrom, setCustomFrom] = useState(searchParams.get("from") || new Date().toISOString().split("T")[0]);
+  const [customTo, setCustomTo] = useState(searchParams.get("to") || new Date().toISOString().split("T")[0]);
+
+  const setRangeFilter = (range: string) => {
+    router.push("/dashboard/owner?range=" + range);
+  };
+
+  const applyCustomRange = () => {
+    router.push("/dashboard/owner?range=custom&from=" + customFrom + "&to=" + customTo);
+    setShowDatePicker(false);
+  };
 
   const totalOmzet = businesses.reduce((s, b) => s + b.omzetBulan, 0);
   const totalLaba = businesses.reduce((s, b) => s + Math.max(0, b.labaBulan), 0);
@@ -135,7 +145,7 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
           <label className="text-[10px] text-[#6B7280] block mb-1 uppercase tracking-wide">Sampai tanggal</label>
           <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
             className="w-full bg-[#0B0E14] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs text-[#E4E7EC] mb-2.5" style={{ colorScheme: "dark" }} />
-          <button onClick={() => { setRangeFilter("custom"); setShowDatePicker(false); }} className="w-full bg-[#2563EB] text-white text-xs py-1.5 rounded-lg font-semibold">
+          <button onClick={applyCustomRange} className="w-full bg-[#2563EB] text-white text-xs py-1.5 rounded-lg font-semibold">
             Terapkan
           </button>
         </div>

@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import DashboardOwnerClient from "./dashboard-owner-client";
 
-export default async function DashboardOwnerPage() {
+export default async function DashboardOwnerPage({ searchParams }: { searchParams: Promise<{ range?: string; from?: string; to?: string }> }) {
+  const params = await searchParams;
+  const range = params.range || "month";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,11 +20,42 @@ export default async function DashboardOwnerPage() {
   const now = new Date();
   const bulan = now.getMonth() + 1;
   const tahun = now.getFullYear();
-  const startOfMonth = new Date(tahun, now.getMonth(), 1).toISOString().split("T")[0];
-  const startOfLastMonth = new Date(tahun, now.getMonth() - 1, 1).toISOString().split("T")[0];
-  const endOfLastMonth = new Date(tahun, now.getMonth(), 0).toISOString().split("T")[0];
   const today = now.toISOString().split("T")[0];
   const startOfYear = new Date(tahun, 0, 1).toISOString().split("T")[0];
+
+  let periodStart: string;
+  let periodEnd: string = today;
+  let prevPeriodStart: string;
+  let prevPeriodEnd: string;
+
+  if (range === "today") {
+    periodStart = today;
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    prevPeriodStart = yesterday.toISOString().split("T")[0];
+    prevPeriodEnd = prevPeriodStart;
+  } else if (range === "year") {
+    periodStart = startOfYear;
+    prevPeriodStart = new Date(tahun - 1, 0, 1).toISOString().split("T")[0];
+    prevPeriodEnd = new Date(tahun - 1, 11, 31).toISOString().split("T")[0];
+  } else if (range === "custom" && params.from && params.to) {
+    periodStart = params.from;
+    periodEnd = params.to;
+    const fromDate = new Date(params.from);
+    const toDate = new Date(params.to);
+    const diffDays = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000));
+    const prevTo = new Date(fromDate); prevTo.setDate(prevTo.getDate() - 1);
+    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - diffDays);
+    prevPeriodStart = prevFrom.toISOString().split("T")[0];
+    prevPeriodEnd = prevTo.toISOString().split("T")[0];
+  } else {
+    periodStart = new Date(tahun, now.getMonth(), 1).toISOString().split("T")[0];
+    prevPeriodStart = new Date(tahun, now.getMonth() - 1, 1).toISOString().split("T")[0];
+    prevPeriodEnd = new Date(tahun, now.getMonth(), 0).toISOString().split("T")[0];
+  }
+
+  const startOfMonth = periodStart;
+  const startOfLastMonth = prevPeriodStart;
+  const endOfLastMonth = prevPeriodEnd;
 
   const businessData = await Promise.all(
     businesses.map(async (biz) => {
@@ -31,7 +64,8 @@ export default async function DashboardOwnerPage() {
         .select("type, amount, category")
         .eq("business_id", biz.id)
         .eq("scope", "bisnis")
-        .gte("transaction_date", startOfMonth);
+        .gte("transaction_date", startOfMonth)
+        .lte("transaction_date", periodEnd);
 
       const { data: lastMonthTx } = await supabase
         .from("transactions")
@@ -57,7 +91,8 @@ export default async function DashboardOwnerPage() {
         .from("orders")
         .select("total, laba")
         .eq("business_id", biz.id)
-        .gte("order_date", startOfMonth);
+        .gte("order_date", startOfMonth)
+        .lte("order_date", periodEnd);
 
       const { data: target } = await supabase
         .from("business_targets")
