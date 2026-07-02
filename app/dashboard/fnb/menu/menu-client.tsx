@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, AlertTriangle, Upload, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
 
-type Product = { id: string; name: string; cost: number | null; stock: number; category: string | null };
+type Product = { id: string; name: string; cost: number | null; stock: number; min_stock?: number; category: string | null };
 type MenuRecipe = { id: string; quantity: number; unit: string; products: Product };
 type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; status: string; foto_url: string | null; menu_recipes: MenuRecipe[] };
 
@@ -13,12 +13,10 @@ const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#1D9E75", "Minuman"
 const KATEGORI_BG: Record<string, string> = { "Makanan": "#E1F5EE", "Minuman": "#E6F1FB", "Snack": "#FAEEDA", "Paket": "#EEEDFE", "Lainnya": "#F1EFE8" };
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50 text-sm";
 
-function calcHpp(menu: Menu): number {
-  const totalBahan = menu.menu_recipes.reduce((sum, r) => {
-    return sum + (r.products.cost || 0) * r.quantity;
-  }, 0);
-  return totalBahan / (menu.yield_quantity || 1);
-}
+import { calcHpp, calcMargin, fmtRp } from "../lib/calc";
+import FnbHubNav from "../components/fnb-hub-nav";
+import FnbKpiRow from "../components/fnb-kpi-row";
+import FnbStockAlerts from "../components/fnb-stock-alerts";
 
 type FormMenuProps = {
   editMenu: Menu | null;
@@ -256,12 +254,14 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
 
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Total menu</p><p className="text-lg font-mono font-semibold text-[#38BDF8]">{totalMenu}</p></div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Menu aktif</p><p className="text-lg font-mono font-semibold text-[#2DD4BF]">{totalAktif}</p></div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Avg. margin</p><p className="text-lg font-mono font-semibold text-[#8B5CF6]">{Math.round(avgMargin)}%</p></div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Menu rugi</p><p className="text-lg font-mono font-semibold text-[#EC4899]">{menuRugi}</p></div>
-      </div>
+      <FnbHubNav />
+      <FnbKpiRow items={[
+        { label: "Total menu", value: String(totalMenu), color: "#38BDF8" },
+        { label: "Menu aktif", value: String(totalAktif), color: "#2DD4BF" },
+        { label: "Avg margin", value: `${Math.round(avgMargin)}%`, color: "#8B5CF6", sub: "Food cost otomatis" },
+        { label: "Menu rugi", value: String(menuRugi), color: menuRugi > 0 ? "#EC4899" : "#2DD4BF" },
+      ]} />
+      <FnbStockAlerts products={products.map(p => ({ id: p.id, name: p.name, stock: p.stock, min_stock: p.min_stock ?? 5, category: p.category }))} />
 
       <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
@@ -288,10 +288,11 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
         ) : (
           <div className="divide-y divide-white/[0.04]">
             {filtered.map(m => {
-              const hpp = calcHpp(m);
-              const laba = m.harga_jual - hpp;
-              const margin = hpp > 0 ? (laba / m.harga_jual * 100) : null;
-              const isRugi = hpp > 0 && laba < 0;
+              const mcalc = calcMargin(m);
+              const hpp = mcalc?.hpp ?? calcHpp(m);
+              const laba = mcalc?.laba ?? m.harga_jual - hpp;
+              const margin = mcalc?.marginPct ?? (hpp > 0 ? Math.round(laba / m.harga_jual * 100) : null);
+              const isRugi = mcalc?.isLoss ?? (hpp > 0 && laba < 0);
               const isExpanded = expandedId === m.id;
               const kat = m.kategori || "Lainnya";
               const katColor = KATEGORI_COLOR[kat] || "#888780";
@@ -307,15 +308,19 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
                         <span className={"text-[10px] px-2 py-0.5 rounded-full " + (m.status === "aktif" ? "bg-[#2DD4BF]/15 text-[#2DD4BF]" : "bg-white/5 text-[#8B8AA0]")}>{m.status}</span>
                         {bahanHabis.length > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EC4899]/15 text-[#EC4899]"><AlertTriangle size={9} className="inline mr-1" />bahan habis</span>}
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-[#8B8AA0]">
-                        <span>Jual Rp{m.harga_jual.toLocaleString("id-ID")}</span>
-                        {hpp > 0 && <span>HPP Rp{Math.round(hpp).toLocaleString("id-ID")}</span>}
-                        {margin !== null && (
-                          <span className={"font-medium " + (isRugi ? "text-[#EC4899]" : "text-[#2DD4BF]")}>
-                            {isRugi ? "RUGI" : "Laba"} Rp{Math.abs(Math.round(laba)).toLocaleString("id-ID")} ({Math.abs(Math.round(margin))}%)
+                      <div className="flex items-center gap-3 text-[11px] text-[#8B8AA0] flex-wrap">
+                        <span className="text-sm font-mono font-semibold text-[#F2F1F8]">{fmtRp(m.harga_jual)}</span>
+                        {hpp > 0 && (
+                          <span className="rounded-lg bg-violet-500/10 px-2 py-0.5 text-violet-300">
+                            Modal {fmtRp(Math.round(hpp))}
                           </span>
                         )}
-                        {hpp === 0 && <span className="text-[#F59E0B]">Belum ada resep</span>}
+                        {margin !== null && (
+                          <span className={"rounded-lg px-2 py-0.5 font-medium " + (isRugi ? "bg-red-500/15 text-red-300" : "bg-emerald-500/15 text-emerald-300")}>
+                            {isRugi ? "Rugi" : "Untung"} {Math.abs(margin)}%
+                          </span>
+                        )}
+                        {hpp === 0 && <span className="text-amber-400">+ tambah resep dulu</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

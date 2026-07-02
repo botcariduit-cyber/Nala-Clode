@@ -30,7 +30,7 @@ export default async function FnbMenuPage() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, cost, stock, category")
+    .select("id, name, cost, stock, min_stock, category")
     .eq("business_id", business.id)
     .order("name");
 
@@ -40,7 +40,7 @@ export default async function FnbMenuPage() {
         <h1 className="text-2xl font-semibold">Master Menu</h1>
         {business?.name && <span className="text-xs text-[#8B8AA0] bg-white/5 px-3 py-1 rounded-full">{business.name}</span>}
       </div>
-      <p className="text-[#8B8AA0] mb-6">Kelola menu, resep, dan hitung HPP otomatis.</p>
+      <p className="text-[#8B8AA0] mb-6">Kelola menu, resep bahan, dan lihat untung/rugi otomatis.</p>
       <FnbMenuClient menus={menus || []} products={products || []} userId={user!.id} businessId={business.id} />
     </div>
   );

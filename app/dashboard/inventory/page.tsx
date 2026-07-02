@@ -55,20 +55,27 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     saprotanMeta = sm || [];
   }
 
-  const { data: movements } = await supabase
-    .from("stock_movements")
-    .select("id, type, reason, quantity, note, profit_loss, created_at, movement_date, products(name)")
-    .eq("user_id", user!.id)
-    .eq("product_id", "dummy")
-    .gte("movement_date", startDate)
-    .lte("movement_date", endDate)
-    .order("movement_date", { ascending: false })
-    .limit(20);
+  const productIds = products?.map(p => p.id) || [];
 
-  const { data: allMovements } = await supabase
-    .from("stock_movements")
-    .select("profit_loss, reason")
-    .eq("user_id", user!.id);
+  const movementsQuery = productIds.length > 0
+    ? supabase
+        .from("stock_movements")
+        .select("id, type, reason, quantity, note, profit_loss, created_at, movement_date, products(name)")
+        .in("product_id", productIds)
+        .gte("movement_date", startDate)
+        .lte("movement_date", endDate)
+        .order("movement_date", { ascending: false })
+        .limit(20)
+    : Promise.resolve({ data: [] as never[] });
+
+  const allMovementsQuery = productIds.length > 0
+    ? supabase
+        .from("stock_movements")
+        .select("profit_loss, reason")
+        .in("product_id", productIds)
+    : Promise.resolve({ data: [] as never[] });
+
+  const [{ data: movements }, { data: allMovements }] = await Promise.all([movementsQuery, allMovementsQuery]);
 
   const totalRealizedProfit = allMovements?.reduce((sum, m) => sum + Number(m.profit_loss || 0), 0) || 0;
   const totalProducts = products?.length || 0;
@@ -101,7 +108,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         <h1 className="text-2xl font-semibold">Inventory</h1>
         {business?.name && <span className="text-xs text-[#8B8AA0] bg-white/5 px-3 py-1 rounded-full">{business.name}</span>}
       </div>
-      <p className="text-[#8B8AA0] mb-8">{config.produkLabel} dan stok kamu.</p>
+      {business?.type === "kuliner" ? (
+        <p className="text-[#8B8AA0] mb-4 text-sm">Stok bahan → buat menu + resep → jual di kasir. Stok otomatis berkurang.</p>
+      ) : (
+        <p className="text-[#8B8AA0] mb-8">{config.produkLabel} dan stok kamu.</p>
+      )}
 
       {business?.type !== "homeindustry" && business?.type !== "ternak" && business?.type !== "kuliner" && business?.type !== "pertanian" && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

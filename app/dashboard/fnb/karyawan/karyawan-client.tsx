@@ -11,6 +11,8 @@ type Employee = {
 
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50 text-sm";
 
+import FnbHubNav from "../components/fnb-hub-nav";
+
 export default function KaryawanClient({ employees, userId, businessId }: { employees: Employee[]; userId: string; businessId: string }) {
   const router = useRouter();
   const supabase = createClient();
@@ -55,6 +57,7 @@ export default function KaryawanClient({ employees, userId, businessId }: { empl
 
   return (
     <div>
+      <FnbHubNav />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4">
           <p className="text-xs text-[#8B8AA0] mb-1">Total karyawan</p>

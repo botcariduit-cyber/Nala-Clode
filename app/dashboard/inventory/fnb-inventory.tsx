@@ -2,9 +2,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Search, Trash2, ArrowLeftRight, Edit2 } from "lucide-react";
+import { Plus, Search, Trash2, ArrowLeftRight, Edit2, X } from "lucide-react";
+import FnbHubNav from "../fnb/components/fnb-hub-nav";
+import FnbKpiRow from "../fnb/components/fnb-kpi-row";
+import FnbStockAlerts from "../fnb/components/fnb-stock-alerts";
+import { fmtRp } from "../fnb/lib/calc";
 
-type Product = { id: string; name: string; sku: string | null; stock: number; min_stock: number; price: number | null; cost: number | null; category: string | null; photo_url: string | null };
+type Product = { id: string; name: string; sku: string | null; stock: number; min_stock: number; price: number | null; cost: number | null; category: string | null; photo_url: string | null; unit?: string | null };
 
 const KATEGORI = ["Bahan Baku", "Bumbu", "Minuman", "Kemasan", "Produk Siap Jual"];
 const SATUAN_OPTIONS = ["kg", "gram", "liter", "ml", "pcs", "botol", "sachet", "bungkus", "porsi", "lusin", "unit"];
@@ -94,6 +98,7 @@ export default function FnBInventory({ products, userId, businessId }: { product
   const [moveDate, setMoveDate] = useState(new Date().toISOString().split("T")[0]);
   const [moveNote, setMoveNote] = useState("");
   const [moveLoading, setMoveLoading] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const resetForm = () => { setFNama(""); setFStok(""); setFSatuan("kg"); setFHargaBeli(""); setFHargaJual(""); setFMinStok("5"); setFSku(""); setEditProduct(null); };
 
@@ -104,7 +109,13 @@ export default function FnBInventory({ products, userId, businessId }: { product
   const handleSave = async () => {
     if (!fNama || !fStok) return;
     setFormLoading(true);
-    const payload = { user_id: userId, business_id: businessId, name: fNama, category: fKategori, stock: Number(fStok), min_stock: Number(fMinStok), cost: fHargaBeli ? Number(fHargaBeli) : null, price: fHargaJual ? Number(fHargaJual) : null, sku: fSku || null };
+    const payload = {
+      user_id: userId, business_id: businessId, name: fNama, category: fKategori,
+      stock: Number(fStok), min_stock: Number(fMinStok),
+      cost: fHargaBeli ? Number(fHargaBeli) : null,
+      price: fHargaJual ? Number(fHargaJual) : null,
+      sku: fSku || null, unit: fSatuan || "kg",
+    };
     if (editProduct) { await supabase.from("products").update(payload).eq("id", editProduct.id); }
     else { await supabase.from("products").insert(payload); }
     setFormLoading(false); resetForm(); setShowForm(null); router.refresh();
@@ -137,7 +148,7 @@ export default function FnBInventory({ products, userId, businessId }: { product
 
   const startEdit = (p: Product) => {
     setEditProduct(p); setFNama(p.name); setFKategori(p.category || "Bahan Baku"); setFStok(p.stock.toString());
-    setFSatuan("kg"); setFHargaBeli(p.cost?.toString() || ""); setFHargaJual(p.price?.toString() || "");
+    setFSatuan(p.unit || "kg"); setFHargaBeli(p.cost?.toString() || ""); setFHargaJual(p.price?.toString() || "");
     setFMinStok(p.min_stock.toString()); setFSku(p.sku || ""); setShowForm(p.category || "Bahan Baku");
   };
 
@@ -146,15 +157,17 @@ export default function FnBInventory({ products, userId, businessId }: { product
   const habis = products.filter(p => p.stock <= 0).length;
 
   return (
-    <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Total bahan</p><p className="text-lg font-mono font-semibold text-[#38BDF8]">{products.length}</p></div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Hampir habis</p><p className="text-lg font-mono font-semibold text-[#F59E0B]">{hampirHabis}</p></div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Nilai stok</p><p className="text-lg font-mono font-semibold text-[#2DD4BF]">{"Rp" + nilaiStok.toLocaleString("id-ID")}</p></div>
-        <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl p-4"><p className="text-xs text-[#8B8AA0] mb-1">Bahan habis</p><p className="text-lg font-mono font-semibold text-[#EC4899]">{habis}</p></div>
-      </div>
+    <div className="pb-24 md:pb-0">
+      <FnbHubNav />
+      <FnbStockAlerts products={products} />
+      <FnbKpiRow items={[
+        { label: "Total bahan", value: String(products.length), color: "#38BDF8" },
+        { label: "Hampir habis", value: String(hampirHabis), color: "#F59E0B" },
+        { label: "Nilai stok", value: fmtRp(nilaiStok), color: "#2DD4BF" },
+        { label: "Bahan habis", value: String(habis), color: habis > 0 ? "#EC4899" : "#2DD4BF" },
+      ]} />
 
-      <div className="bg-[#0F0F1A] border border-white/10 rounded-2xl overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0F0F1A]/90 backdrop-blur-sm">
         <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3">
           <div className="flex-1 relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B8AA0]" />
@@ -217,8 +230,9 @@ export default function FnBInventory({ products, userId, businessId }: { product
                             {isRugi && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EC4899]/15 text-[#EC4899]">Rugi</span>}
                           </div>
                           <p className="text-[11px] text-[#8B8AA0]">
-                            {p.cost ? (isSiapJual ? "HPP" : "Beli") + " Rp" + Number(p.cost).toLocaleString("id-ID") : ""}
-                            {p.price ? " · Jual Rp" + Number(p.price).toLocaleString("id-ID") : ""}
+                            {p.unit && <span>{p.stock} {p.unit} · </span>}
+                            {p.cost ? (isSiapJual ? "HPP" : "Beli") + " " + fmtRp(Number(p.cost)) : ""}
+                            {p.price ? " · Jual " + fmtRp(Number(p.price)) : ""}
                             {laba !== null && <span style={{ color: laba >= 0 ? "#2DD4BF" : "#EC4899" }}>{" · " + (laba >= 0 ? "Laba" : "RUGI") + " Rp" + Math.abs(laba).toLocaleString("id-ID")}</span>}
                           </p>
                         </div>
@@ -271,6 +285,48 @@ export default function FnBInventory({ products, userId, businessId }: { product
             <button onClick={handleMove} disabled={moveLoading} className="w-full py-2.5 rounded-lg text-[#0A0A12] font-semibold text-sm disabled:opacity-50" style={{ background: "linear-gradient(to right, #38BDF8, #8B5CF6)" }}>
               {moveLoading ? "Menyimpan..." : "Simpan"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile FAB — tambah bahan cepat */}
+      <button
+        type="button"
+        onClick={() => { resetForm(); setFKategori("Bahan Baku"); setQuickOpen(true); }}
+        className="md:hidden fixed bottom-6 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30 active:scale-95"
+        aria-label="Tambah bahan"
+      >
+        <Plus size={24} />
+      </button>
+
+      {quickOpen && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60 md:items-center md:justify-center" onClick={() => setQuickOpen(false)}>
+          <div className="w-full max-h-[85vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0F0F1A] p-5 md:max-w-md md:rounded-2xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold">Tambah Bahan — 3 langkah</h3>
+              <button type="button" onClick={() => setQuickOpen(false)} className="text-[#8B8AA0]"><X size={20} /></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <input className={inputCls} placeholder="Nama bahan" value={fNama} onChange={e => setFNama(e.target.value)} />
+              <select className={inputCls} value={fKategori} onChange={e => setFKategori(e.target.value)}>
+                {KATEGORI.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <input className={inputCls} type="number" placeholder="Stok" value={fStok} onChange={e => setFStok(e.target.value)} />
+                <select className={inputCls} value={fSatuan} onChange={e => setFSatuan(e.target.value)}>
+                  {SATUAN_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <input className={inputCls} type="number" placeholder="Harga beli (Rp)" value={fHargaBeli} onChange={e => setFHargaBeli(e.target.value)} />
+              <button
+                type="button"
+                disabled={formLoading || !fNama || !fStok}
+                onClick={async () => { await handleSave(); setQuickOpen(false); }}
+                className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {formLoading ? "Menyimpan..." : "Simpan Bahan"}
+              </button>
+            </div>
           </div>
         </div>
       )}

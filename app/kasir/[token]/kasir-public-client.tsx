@@ -10,10 +10,8 @@ type Stats = { omzet: number; laba: number; totalOrders: number; foodCost: numbe
 const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#2DD4BF", "Minuman": "#38BDF8", "Snack": "#F59E0B", "Paket": "#8B5CF6", "Lainnya": "#8B8AA0" };
 const KATEGORI_ICON: Record<string, string> = { "Makanan": "ti-bowl-chopsticks", "Minuman": "ti-glass", "Snack": "ti-cookie", "Paket": "ti-package", "Lainnya": "ti-dots" };
 
-function calcHpp(menu: Menu): number {
-  const total = menu.menu_recipes.reduce((s, r) => s + (r.products.cost || 0) * r.quantity, 0);
-  return total / (menu.yield_quantity || 1);
-}
+import { calcHpp } from "@/app/dashboard/fnb/lib/calc";
+import { validateCartStock, deductStockForSale } from "@/app/dashboard/fnb/lib/process-order";
 
 function buf2b64(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -198,6 +196,13 @@ export default function KasirPublicClient({ employee: emp, business, menus, init
 
   const handleProses = async () => {
     if (!cartItems.length) return;
+
+    const stockCheck = validateCartStock(cartItems.map(c => ({ menu: c.menu, qty: c.qty })));
+    if (!stockCheck.ok) {
+      alert(stockCheck.message);
+      return;
+    }
+
     setLoading(true);
     const { data: order, error } = await supabase.from("orders").insert({
       user_id: employee.id,
@@ -215,13 +220,12 @@ export default function KasirPublicClient({ employee: emp, business, menus, init
       laba: (c.menu.harga_jual - calcHpp(c.menu)) * c.qty,
     })));
 
-    for (const item of cartItems) {
-      for (const r of item.menu.menu_recipes) {
-        const needed = (r.quantity / (item.menu.yield_quantity || 1)) * item.qty;
-        const { data: prod } = await supabase.from("products").select("id, stock").eq("id", r.products.id).single();
-        if (prod) await supabase.from("products").update({ stock: Math.max(0, prod.stock - needed) }).eq("id", prod.id);
-      }
-    }
+    await deductStockForSale(
+      supabase,
+      cartItems.map(c => ({ menu: c.menu, qty: c.qty })),
+      employee.id,
+      { today, notePrefix: `Kasir ${employee.nama}` },
+    );
 
     await supabase.from("transactions").insert({
       user_id: employee.id,

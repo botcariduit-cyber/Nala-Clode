@@ -14,10 +14,11 @@ type CartItem = { menu: Menu; qty: number };
 const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#2DD4BF", "Minuman": "#38BDF8", "Snack": "#F59E0B", "Paket": "#8B5CF6", "Lainnya": "#8B8AA0" };
 const KATEGORI_ICON: Record<string, string> = { "Makanan": "ti-bowl-chopsticks", "Minuman": "ti-glass", "Snack": "ti-cookie", "Paket": "ti-package", "Lainnya": "ti-dots" };
 
-function calcHpp(menu: Menu): number {
-  const total = menu.menu_recipes.reduce((s, r) => s + (r.products.cost || 0) * r.quantity, 0);
-  return total / (menu.yield_quantity || 1);
-}
+import { calcHpp } from "../lib/calc";
+import { validateCartStock, deductStockForSale } from "../lib/process-order";
+import FnbHubNav from "../components/fnb-hub-nav";
+import FnbKpiRow from "../components/fnb-kpi-row";
+import FnbStockAlerts from "../components/fnb-stock-alerts";
 
 export default function KasirClient({ menus, employees, userId, businessId, omzetHariIni, labaHariIni, totalOrder, today }: {
   menus: Menu[]; employees: Employee[]; userId: string; businessId: string;
@@ -95,6 +96,13 @@ export default function KasirClient({ menus, employees, userId, businessId, omze
 
   const handleProses = async () => {
     if (cart.length === 0) return;
+
+    const stockCheck = validateCartStock(cart);
+    if (!stockCheck.ok) {
+      alert(stockCheck.message);
+      return;
+    }
+
     setLoading(true);
 
     const { data: order, error } = await supabase.from("orders").insert({
@@ -112,15 +120,7 @@ export default function KasirClient({ menus, employees, userId, businessId, omze
     }));
     await supabase.from("order_items").insert(items);
 
-    for (const item of cart) {
-      for (const r of item.menu.menu_recipes) {
-        const needed = (r.quantity / (item.menu.yield_quantity || 1)) * item.qty;
-        const { data: prod } = await supabase.from("products").select("id, stock").eq("id", r.products.id).single();
-        if (prod) {
-          await supabase.from("products").update({ stock: Math.max(0, prod.stock - needed) }).eq("id", prod.id);
-        }
-      }
-    }
+    await deductStockForSale(supabase, cart, userId, { today, notePrefix: "Kasir" });
 
     await supabase.from("transactions").insert({
       user_id: userId, business_id: businessId,
@@ -140,18 +140,13 @@ export default function KasirClient({ menus, employees, userId, businessId, omze
 
   return (
     <div style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        {[
-          { lbl: "Omzet hari ini", val: "Rp" + (omzetHariIni/1000).toFixed(0) + "rb", color: "#2DD4BF" },
-          { lbl: "Total order", val: totalOrder.toString(), color: "#8B5CF6" },
-          { lbl: "Laba hari ini", val: "Rp" + (labaHariIni/1000).toFixed(0) + "rb", color: "#F59E0B" },
-        ].map(k => (
-          <div key={k.lbl} className="bg-[#0F0F1A] border border-white/[0.06] rounded-2xl p-4" style={{ borderLeft: "2px solid " + k.color }}>
-            <p className="text-xs mb-1" style={{ color: "#5A5B7A" }}>{k.lbl}</p>
-            <p className="text-xl font-semibold" style={{ color: k.color, fontFamily: "'JetBrains Mono', monospace" }}>{k.val}</p>
-          </div>
-        ))}
-      </div>
+      <FnbHubNav />
+      <FnbKpiRow items={[
+        { label: "Omzet hari ini", value: "Rp" + (omzetHariIni / 1000).toFixed(0) + "rb", color: "#2DD4BF" },
+        { label: "Total order", value: String(totalOrder), color: "#8B5CF6" },
+        { label: "Laba hari ini", value: "Rp" + (labaHariIni / 1000).toFixed(0) + "rb", color: "#F59E0B" },
+        { label: "Margin", value: omzetHariIni > 0 ? Math.round(labaHariIni / omzetHariIni * 100) + "%" : "—", color: "#38BDF8" },
+      ]} />
 
       <div className="bg-[#0F0F1A] border border-white/[0.06] rounded-2xl p-4 mb-6">
         <p className="text-[10px] font-medium text-[#2DD4BF] tracking-widest uppercase mb-3">Check-in karyawan — {today}</p>
