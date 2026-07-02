@@ -79,7 +79,7 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
               {showLabel && (
                 <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{(m as { label?: string }).label}</p>
               )}
-              
+              <a
                 href={m.href}
                 onClick={() => onNavigate?.()}
                 title={m.name}
