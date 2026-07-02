@@ -59,8 +59,6 @@ export default function DashboardOwnerClient({
   const [search, setSearch] = useState("");
   const [selectedBiz, setSelectedBiz] = useState<string>("all");
   const [showBizDropdown, setShowBizDropdown] = useState(false);
-  const [selectedBiz, setSelectedBiz] = useState<string>("all");
-  const [showBizDropdown, setShowBizDropdown] = useState(false);
   const [chartTab, setChartTab] = useState("Harian");
 
   const filteredBusinesses = selectedBiz === "all" ? businesses : businesses.filter(b => b.id === selectedBiz);
