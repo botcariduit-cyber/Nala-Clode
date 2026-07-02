@@ -1,13 +1,21 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-export default function ChatPage() {
+function ChatContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPertanian = searchParams.get("context") === "pertanian";
+
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Halo! Aku Gercep AI. Cerita aja transaksi bisnis kamu, misal: \"jual baju modal 30rb harga 50rb\" — nanti otomatis aku catat." },
+    {
+      role: "assistant",
+      content: isPertanian
+        ? "Halo! Aku Gercep AI Pertanian 🌾 Tanya soal panen, pupuk, pestisida, HPP, estimasi keuntungan, atau komoditas terbaik — aku analisis dari data inventory kamu."
+        : "Halo! Aku Gercep AI. Cerita aja transaksi bisnis kamu, misal: \"jual baju modal 30rb harga 50rb\" — nanti otomatis aku catat.",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +39,10 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages.map((m) => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          context: isPertanian ? "pertanian" : undefined,
+        }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Maaf, ada error." }]);
@@ -48,7 +59,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen">
       <div className="border-b border-white/5 px-8 py-4">
-        <span className="font-semibold">Gercep Chat</span>
+        <span className="font-semibold">{isPertanian ? "Gercep AI Pertanian" : "Gercep Chat"}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-8 py-6 max-w-[768px] w-full mx-auto">
@@ -79,7 +90,7 @@ export default function ChatPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ketik transaksi atau tanya apa aja..."
+            placeholder={isPertanian ? "Tanya soal panen, pupuk, HPP, keuntungan..." : "Ketik transaksi atau tanya apa aja..."}
             className="flex-1 px-4 py-3 rounded-xl bg-[#0F0F1A] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50"
           />
           <button type="submit" disabled={loading} className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-semibold disabled:opacity-50">
@@ -88,5 +99,13 @@ export default function ChatPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-[#8B8AA0]">Memuat chat...</div>}>
+      <ChatContent />
+    </Suspense>
   );
 }

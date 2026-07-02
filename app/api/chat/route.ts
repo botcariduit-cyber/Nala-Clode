@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -44,30 +45,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { messages: chatHistory } = await req.json();
+  const { messages: chatHistory, context } = await req.json();
 
-  const { data: business } = await supabase
+  const cookieStore = await cookies();
+  const activeBusinessId = cookieStore.get("active_business_id")?.value;
+
+  const { data: businesses } = await supabase
     .from("businesses")
-    .select("id")
+    .select("id, type, name")
     .eq("user_id", user.id)
-    .limit(1)
-    .single();
-  const businessId = business?.id;
+    .order("created_at", { ascending: true });
 
-  const { data: products } = await supabase
+  const business = businesses?.find(b => b.id === activeBusinessId) || businesses?.[0] || null;
+  const businessId = business?.id;
+  const isPertanian = business?.type === "pertanian" || context === "pertanian";
+  const unitLabel = isPertanian ? "kg" : "pcs";
+
+  const productQuery = supabase
     .from("products")
-    .select("name, stock, min_stock, price")
+    .select("name, stock, min_stock, price, cost, category")
     .eq("user_id", user.id);
+  if (businessId) productQuery.eq("business_id", businessId);
+  const { data: products } = await productQuery;
+
+  let agriContext = "";
+  if (isPertanian && businessId) {
+    const [{ data: fields }, { data: costs }] = await Promise.all([
+      supabase.from("agri_fields").select("nama_lahan, luas_lahan, jenis_tanaman, status").eq("business_id", businessId),
+      supabase.from("agri_production_costs").select("kategori, jumlah").eq("business_id", businessId),
+    ]);
+    agriContext = `\nKonteks pertanian: Lahan=${JSON.stringify(fields || [])}. Biaya produksi=${JSON.stringify(costs || [])}.`;
+  }
 
   const productContext = products && products.length > 0
-    ? `Daftar stok produk user saat ini: ${JSON.stringify(products)}`
-    : "User belum punya produk apapun di sistem.";
+    ? `Daftar stok/inventory user saat ini: ${JSON.stringify(products)}${agriContext}`
+    : `User belum punya produk apapun di sistem.${agriContext}`;
+
+  const pertanianPrompt = isPertanian ? `
+Kamu juga ahli pertanian Indonesia. Bantu hitung estimasi keuntungan panen, kebutuhan pupuk/pestisida, waktu panen, HPP, margin, dan rekomendasi komoditas.
+Satuan default untuk stok pertanian adalah kg/ton/karung, BUKAN pcs.
+Contoh pertanyaan yang bisa dijawab: estimasi keuntungan panen, kebutuhan pupuk bulan depan, komoditas paling menguntungkan, kapan waktu panen terbaik.
+` : "";
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: `Kamu adalah Gercep AI, asisten bisnis buat UMKM Indonesia. Gaya bicara kamu tegas, singkat, langsung ke inti, kayak partner bisnis yang gercep, bukan asisten yang lembek atau basa-basi panjang. JANGAN pakai markdown (bintang, tanda bold) karena tampilan chat nggak support itu. JANGAN pakai emoji berlebihan, maksimal 1 emoji kalau perlu.
-
+${pertanianPrompt}
 Kalau user cerita soal transaksi (jualan, beli, pengeluaran, pemasukan), gunakan tool catat_transaksi.
 
 Aturan nentuin scope (pribadi vs bisnis):
@@ -127,7 +151,7 @@ Kalau user cuma nanya atau ngobrol biasa, jawab singkat dan jelas.`,
           .from("products")
           .update({ stock: newStock, ...(input.price && { price: input.price }), ...(input.cost && { cost: input.cost }) })
           .eq("id", existing.id);
-        replyText = error ? "Ada error pas update stok." : `Stok ${input.name} sekarang ${newStock} pcs.`;
+        replyText = error ? "Ada error pas update stok." : `Stok ${input.name} sekarang ${newStock} ${unitLabel}.`;
       } else {
         const initialStock = input.set_to !== undefined ? input.set_to : Math.max(input.stock_change || 0, 0);
         const { error } = await supabase.from("products").insert({
@@ -137,8 +161,9 @@ Kalau user cuma nanya atau ngobrol biasa, jawab singkat dan jelas.`,
           stock: initialStock,
           price: input.price,
           cost: input.cost,
+          category: isPertanian ? "Sayuran" : null,
         });
-        replyText = error ? "Ada error pas nambah produk." : `Produk ${input.name} ditambahin, stok awal ${initialStock} pcs.`;
+        replyText = error ? "Ada error pas nambah produk." : `Produk ${input.name} ditambahin, stok awal ${initialStock} ${unitLabel}.`;
       }
       recordedTransaction = { stockUpdate: true };
     }

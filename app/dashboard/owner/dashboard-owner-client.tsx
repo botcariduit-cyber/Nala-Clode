@@ -25,10 +25,10 @@ type Business = {
 };
 
 const TYPE_COLOR: Record<string, string> = {
-  kuliner: "#2DD4BF", ternak: "#8B5CF6", homeindustry: "#F59E0B", retail: "#EC4899",
+  kuliner: "#2DD4BF", ternak: "#8B5CF6", homeindustry: "#F59E0B", retail: "#EC4899", pertanian: "#22C55E",
 };
 const TYPE_LABEL: Record<string, string> = {
-  kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home Industri", retail: "Retail",
+  kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home Industri", retail: "Retail", pertanian: "Pertanian",
 };
 const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const STATUS_STYLE: Record<string, string> = {

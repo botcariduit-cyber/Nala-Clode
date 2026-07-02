@@ -32,6 +32,8 @@ export async function deleteBusiness(businessId: string) {
       supabase.from("health_schedules").delete().in("product_id", prodIds),
       supabase.from("stock_movements").delete().in("product_id", prodIds),
       supabase.from("harvest_batches").delete().in("product_id", prodIds),
+      supabase.from("agri_harvest_meta").delete().in("product_id", prodIds),
+      supabase.from("agri_saprotan_meta").delete().in("product_id", prodIds),
     ] : []),
     ...(recIds.length ? [
       supabase.from("recipe_ingredients").delete().in("recipe_id", recIds),
@@ -39,6 +41,9 @@ export async function deleteBusiness(businessId: string) {
     supabase.from("production_logs").delete().eq("business_id", businessId),
     supabase.from("farm_batches").delete().eq("business_id", businessId),
     supabase.from("inventory_history").delete().eq("business_id", businessId),
+    supabase.from("agri_fields").delete().eq("business_id", businessId),
+    supabase.from("agri_spraying_records").delete().eq("business_id", businessId),
+    supabase.from("agri_production_costs").delete().eq("business_id", businessId),
   ]);
   // Hapus yang ada FK ke products/recipes dulu baru bisnis
   await Promise.all([

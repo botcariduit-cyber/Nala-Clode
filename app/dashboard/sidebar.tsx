@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import {
-  Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator,
+  Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, Sprout,
   ShoppingCart, Users, Megaphone, BarChart3, QrCode, Receipt, FileText, Smartphone, Gauge,
 } from "lucide-react";
 import BusinessSwitcher from "./business-switcher";
@@ -17,6 +17,10 @@ const baseModules = [
 
 const ternak_modules = [
   { name: "Manajemen Ternak", href: "/dashboard/peternakan", icon: Bird },
+];
+
+const pertanian_modules = [
+  { name: "Modul Pertanian", href: "/dashboard/pertanian", icon: Sprout },
 ];
 
 const fnb_modules = [
@@ -51,6 +55,7 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
   const allModules = [
     ...baseModules,
     ...(activeBusiness?.type === "ternak" ? ternak_modules : []),
+    ...(activeBusiness?.type === "pertanian" ? pertanian_modules : []),
     ...(activeBusiness?.type === "kuliner" ? fnb_modules : []),
   ];
 

@@ -14,6 +14,7 @@ import { getConfig } from "./business-config";
 import LivestockInventory from "./livestock-inventory";
 import HomeIndustryInventory from "./home-industry-inventory";
 import FnBInventory from "./fnb-inventory";
+import AgricultureInventory from "./agriculture-inventory";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ bulan?: string; tahun?: string }> }) {
   const supabase = await createClient();
@@ -42,7 +43,17 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const config = getConfig(business?.type);
 
   const { data: products } = await supabase.from("products").select("*").eq("business_id", business?.id || "").order("name", { ascending: true });
-  console.log("DEBUG inventory:", { userId: user?.id, activeBusinessId, businessId: business?.id, productCount: products?.length });
+
+  let harvestMeta: { product_id: string; satuan: string | null }[] = [];
+  let saprotanMeta: { product_id: string; satuan: string | null }[] = [];
+  if (business?.type === "pertanian" && business.id) {
+    const [{ data: hm }, { data: sm }] = await Promise.all([
+      supabase.from("agri_harvest_meta").select("product_id, satuan").eq("business_id", business.id),
+      supabase.from("agri_saprotan_meta").select("product_id, satuan").eq("business_id", business.id),
+    ]);
+    harvestMeta = hm || [];
+    saprotanMeta = sm || [];
+  }
 
   const { data: movements } = await supabase
     .from("stock_movements")
@@ -92,7 +103,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       </div>
       <p className="text-[#8B8AA0] mb-8">{config.produkLabel} dan stok kamu.</p>
 
-      {business?.type !== "homeindustry" && business?.type !== "ternak" && business?.type !== "kuliner" && (
+      {business?.type !== "homeindustry" && business?.type !== "ternak" && business?.type !== "kuliner" && business?.type !== "pertanian" && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {kpis.map((k) => (
             <div key={k.label} className="relative bg-[#0F0F1A] border border-white/10 rounded-2xl p-5 overflow-hidden">
@@ -116,6 +127,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       ) : business?.type === "kuliner" ? (
         <div className="mb-8">
           <FnBInventory products={products || []} userId={user!.id} businessId={business?.id} />
+        </div>
+      ) : business?.type === "pertanian" ? (
+        <div className="mb-8">
+          <AgricultureInventory
+            products={products || []}
+            harvestMeta={harvestMeta as never}
+            saprotanMeta={saprotanMeta as never}
+            userId={user!.id}
+            businessId={business?.id}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 mb-8">
