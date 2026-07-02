@@ -121,11 +121,27 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
       const targetOmzet = target?.target_omzet || 0;
       const targetPct = targetOmzet > 0 ? Math.round(omzetBulan / targetOmzet * 100) : 0;
 
+      // Daily data for chart
+      const { data: dailyTx } = await supabase
+        .from("transactions")
+        .select("transaction_date, amount")
+        .eq("business_id", biz.id)
+        .eq("scope", "bisnis")
+        .eq("type", "pemasukan")
+        .gte("transaction_date", startOfMonth)
+        .lte("transaction_date", periodEnd);
+
+      const dailyMap: Record<string, number> = {};
+      dailyTx?.forEach(t => {
+        const d = t.transaction_date;
+        dailyMap[d] = (dailyMap[d] || 0) + Number(t.amount);
+      });
+
       return {
         id: biz.id, name: biz.name, type: biz.type,
         omzetBulan, labaBulan, omzetBulanLalu, omzetTahun, growthPct,
         totalOrderBulan, stokKritis, pengeluaranByCategory,
-        targetOmzet, targetPct,
+        targetOmzet, targetPct, dailyMap,
         margin: omzetBulan > 0 ? Math.round(labaBulan / omzetBulan * 100) : 0,
       };
     })
