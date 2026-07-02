@@ -288,7 +288,7 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId 
                   <Pie data={donutData} cx={114} cy={60} innerRadius={38} outerRadius={55} dataKey="value" paddingAngle={2}>
                     {donutData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number) => fmtRpFull(v)} contentStyle={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 8, fontSize: 11 }} />
+                  <Tooltip formatter={(v: unknown) => fmtRpFull(Number(v))} contentStyle={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 8, fontSize: 11 }} />
                 </PieChart>
                 {businesses.map(b => (
                   <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
