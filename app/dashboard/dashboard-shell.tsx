@@ -51,7 +51,7 @@ export default function DashboardShell({ children, businesses, activeBusiness, u
     <>
       <Sidebar expanded={expanded} setExpanded={setExpanded} businesses={businesses} activeBusiness={activeBusiness} userName={userName} />
       <main
-        className="flex-1 overflow-y-auto bg-[#070711] transition-[margin-left] duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+        className="flex-1 overflow-x-hidden overflow-y-auto bg-[#070711] transition-[margin-left] duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{ marginLeft: expanded ? 220 : 64 }}
       >
         {children}

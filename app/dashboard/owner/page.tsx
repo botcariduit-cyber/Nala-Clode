@@ -1,6 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import DashboardOwnerClient from "./dashboard-owner-client";
 
+export type TopProduct = { id: string; name: string; sold: number; revenue: number; emoji: string };
+export type RecentTransaction = {
+  id: string; customer: string; status: "Selesai" | "Diproses" | "Pending";
+  amount: number; time: string;
+};
+
+const PRODUCT_EMOJI = ["🍜", "☕", "🧁", "🍱", "🥤", "🍕", "🥗", "🍰"];
+
 export default async function DashboardOwnerPage({ searchParams }: { searchParams: Promise<{ range?: string; from?: string; to?: string }> }) {
   const params = await searchParams;
   const range = params.range || "month";
@@ -63,6 +71,7 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
   const startOfMonth = periodStart;
   const startOfLastMonth = prevPeriodStart;
   const endOfLastMonth = prevPeriodEnd;
+  const bizIds = businesses.map(b => b.id);
 
   const businessData = await Promise.all(
     businesses.map(async (biz) => {
@@ -154,7 +163,69 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
     })
   );
 
+  const { data: orderItems } = await supabase
+    .from("order_items")
+    .select("qty, harga_jual, menus(nama), orders!inner(business_id, order_date)")
+    .in("orders.business_id", bizIds)
+    .gte("orders.order_date", startOfMonth)
+    .lte("orders.order_date", periodEnd);
+
+  const productMap: Record<string, { name: string; sold: number; revenue: number }> = {};
+  orderItems?.forEach(item => {
+    const raw = item.menus as unknown;
+    const menu = (Array.isArray(raw) ? raw[0] : raw) as { nama: string } | null | undefined;
+    if (!menu?.nama) return;
+    if (!productMap[menu.nama]) productMap[menu.nama] = { name: menu.nama, sold: 0, revenue: 0 };
+    productMap[menu.nama].sold += Number(item.qty);
+    productMap[menu.nama].revenue += Number(item.qty) * Number(item.harga_jual);
+  });
+
+  let topProducts: TopProduct[] = Object.entries(productMap)
+    .map(([name, data], i) => ({
+      id: name, name: data.name, sold: data.sold, revenue: data.revenue,
+      emoji: PRODUCT_EMOJI[i % PRODUCT_EMOJI.length],
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  if (topProducts.length === 0) {
+    const { data: allProducts } = await supabase
+      .from("products").select("id, name, price").in("business_id", bizIds).order("name").limit(5);
+    topProducts = (allProducts || []).map((p, i) => ({
+      id: p.id, name: p.name, sold: 0, revenue: Number(p.price || 0),
+      emoji: PRODUCT_EMOJI[i % PRODUCT_EMOJI.length],
+    }));
+  }
+
+  const { data: recentTxRaw } = await supabase
+    .from("transactions")
+    .select("id, amount, type, description, category, created_at")
+    .in("business_id", bizIds)
+    .eq("scope", "bisnis")
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  const recentTransactions: RecentTransaction[] = (recentTxRaw || []).map(tx => {
+    const created = tx.created_at ? new Date(tx.created_at) : new Date();
+    const customer = tx.description?.split(",")[0]?.split(" x")[0] || tx.category || "Pelanggan";
+    return {
+      id: tx.id,
+      customer: customer.length > 18 ? customer.slice(0, 18) + "…" : customer,
+      status: tx.type === "pemasukan" ? "Selesai" : "Diproses",
+      amount: Number(tx.amount),
+      time: `${String(created.getHours()).padStart(2, "0")}:${String(created.getMinutes()).padStart(2, "0")}`,
+    };
+  });
+
   return (
-    <DashboardOwnerClient businesses={businessData} bulan={bulan} tahun={tahun} userId={user!.id} userName={userName} />
+    <DashboardOwnerClient
+      businesses={businessData}
+      topProducts={topProducts}
+      recentTransactions={recentTransactions}
+      bulan={bulan}
+      tahun={tahun}
+      userId={user!.id}
+      userName={userName}
+    />
   );
 }

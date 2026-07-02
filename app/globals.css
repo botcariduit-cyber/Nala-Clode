@@ -1,11 +1,7 @@
 @import "tailwindcss";
 
 @layer base {
-  * {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-  }
-
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     background: #070711;
     color: #f0eff8;
@@ -16,7 +12,7 @@
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(45, 212, 191, 0.35); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.3); border-radius: 2px; }
 
 .holo-text {
   background: linear-gradient(100deg, #2dd4bf, #8b5cf6, #ec4899, #2dd4bf);
@@ -31,56 +27,113 @@
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
-
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.97); }
+  from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
 
-.fade-up { animation: fadeUp 0.45s ease-out both; }
-.scale-in { animation: scaleIn 0.3s ease-out both; }
+.fade-up { animation: fadeUp 0.4s ease-out both; }
+.scale-in { animation: scaleIn 0.25s ease-out both; }
+
+/* ── Dashboard tokens ── */
+.dashboard-card {
+  background: #151921;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+.dashboard-card-hover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.dashboard-card-hover:hover {
+  border-color: rgba(124, 58, 237, 0.22);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.dash-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #151921;
+  font-size: 13px;
+  color: #94a3b8;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dash-header-btn:hover {
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #e2e8f0;
+}
+
+.dash-dropdown {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a2030;
+  padding: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.dash-date-input {
+  display: block;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0b0e14;
+  font-size: 12px;
+  color: #cbd5e1;
+  outline: none;
+  color-scheme: dark;
+}
+.dash-date-input:focus {
+  border-color: rgba(124, 58, 237, 0.45);
+}
+.dash-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.dash-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+.dash-card-link {
+  font-size: 11px;
+  color: #a78bfa;
+  transition: color 0.15s;
+}
+.dash-card-link:hover { color: #c4b5fd; }
 
 .gercep-card {
   background: #0d0d1a;
   border: 0.5px solid rgba(255, 255, 255, 0.06);
   border-radius: 13px;
 }
-
-.gercep-card-hover {
-  transition: border-color 0.2s ease, transform 0.2s ease;
-}
-
-.gercep-card-hover:hover {
-  border-color: rgba(45, 212, 191, 0.18);
-}
-
 .gercep-gradient-btn {
-  background: linear-gradient(135deg, #2dd4bf, #8b5cf6);
-  color: #070711;
-}
-
-.gercep-input {
-  background: #0d0d1a;
-  border: 0.5px solid rgba(255, 255, 255, 0.07);
-  color: #f0eff8;
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  color: #fff;
 }
 
 @media print {
   aside, .no-print { display: none !important; }
 }
 
-@media (max-width: 1023px) {
-  .owner-grid-kpi { grid-template-columns: repeat(2, 1fr) !important; }
-  .owner-grid-2 { grid-template-columns: 1fr !important; }
-  .owner-main-layout { flex-direction: column !important; }
-  .owner-right-col { width: 100% !important; }
+@media (max-width: 1279px) {
+  .owner-grid-kpi { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
-
-@media (max-width: 639px) {
+@media (max-width: 767px) {
+  .owner-grid-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .owner-grid-2 { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 479px) {
   .owner-grid-kpi { grid-template-columns: 1fr !important; }
 }
