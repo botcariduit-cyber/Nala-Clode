@@ -48,15 +48,19 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId,
   const [savingTarget, setSavingTarget] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [selectedBiz, setSelectedBiz] = useState<string>("all");
+  const [showBizDropdown, setShowBizDropdown] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
 
-  const totalOmzet = businesses.reduce((s, b) => s + b.omzetBulan, 0);
-  const totalLaba = businesses.reduce((s, b) => s + Math.max(0, b.labaBulan), 0);
-  const totalRugi = businesses.reduce((s, b) => s + Math.abs(Math.min(0, b.labaBulan)), 0);
-  const totalOrder = businesses.reduce((s, b) => s + b.totalOrderBulan, 0);
+  const filteredBusinesses = selectedBiz === "all" ? businesses : businesses.filter(b => b.id === selectedBiz);
+  const totalOmzet = filteredBusinesses.reduce((s, b) => s + b.omzetBulan, 0);
+  const totalLaba = filteredBusinesses.reduce((s, b) => s + Math.max(0, b.labaBulan), 0);
+  const totalRugi = filteredBusinesses.reduce((s, b) => s + Math.abs(Math.min(0, b.labaBulan)), 0);
+  const totalOrder = filteredBusinesses.reduce((s, b) => s + b.totalOrderBulan, 0);
   const avgOrder = totalOrder > 0 ? Math.round(totalOmzet / totalOrder) : 0;
-  const avgGrowth = businesses.length > 0 ? Math.round(businesses.reduce((s, b) => s + b.growthPct, 0) / businesses.length) : 0;
-  const ranked = [...businesses].sort((a, b) => b.labaBulan - a.labaBulan);
-  const topGrowth = [...businesses].sort((a, b) => b.growthPct - a.growthPct)[0];
+  const avgGrowth = filteredBusinesses.length > 0 ? Math.round(filteredBusinesses.reduce((s, b) => s + b.growthPct, 0) / businesses.length) : 0;
+  const ranked = [...filteredBusinesses].sort((a, b) => b.labaBulan - a.labaBulan);
+  const topGrowth = [...filteredBusinesses].sort((a, b) => b.growthPct - a.growthPct)[0];
 
   const alerts = businesses
     .filter(b => b.stokKritis.length > 0)
@@ -117,7 +121,37 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId,
             </div>
           )}
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setShowBizDropdown(!showBizDropdown)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#0D0D1A", color: "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
+            🏢 {selectedBiz === "all" ? "Semua Bisnis" : (businesses.find(b => b.id === selectedBiz)?.name || "Bisnis")} ▼
+          </button>
+          {showBizDropdown && (
+            <div style={{ position: "absolute", top: 38, right: 0, background: "#161622", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 10, padding: 6, minWidth: 200, zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+              <button onClick={() => { setSelectedBiz("all"); setShowBizDropdown(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", background: selectedBiz === "all" ? "rgba(45,212,191,.1)" : "transparent", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, color: selectedBiz === "all" ? "#2DD4BF" : "#C4C3D4", textAlign: "left", fontFamily: "'Space Grotesk', sans-serif" }}>
+                🌐 Semua Bisnis
+              </button>
+              {businesses.map(b => (
+                <button key={b.id} onClick={() => { setSelectedBiz(b.id); setShowBizDropdown(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", background: selectedBiz === b.id ? "rgba(45,212,191,.1)" : "transparent", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, color: selectedBiz === b.id ? "#2DD4BF" : "#C4C3D4", textAlign: "left", fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: TYPE_COLOR[b.type] || "#8B8AA0", flexShrink: 0 }}></span>
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setShowNotif(!showNotif)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.08)", cursor: "pointer", color: "#8B8AA0", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            🔔
+            {visibleAlerts.length > 0 && <span style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: "50%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", fontSize: 8, color: "#070711", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{visibleAlerts.length}</span>}
+          </button>
+        </div>
+
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#070711", cursor: "pointer" }}>
+          {userName[0].toUpperCase()}
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => window.print()} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#0D0D1A", color: "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
             <Printer size={11} /> Cetak
           </button>
