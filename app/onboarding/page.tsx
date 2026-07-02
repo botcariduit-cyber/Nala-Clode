@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { saveOnboardingBusiness, setActiveBusinessCookie } from "@/lib/onboarding/save-business";
 import { Store, Bird, UtensilsCrossed, Factory, Briefcase, ShoppingBag, Truck, Heart, Leaf, Wrench, PenLine } from "lucide-react";
 
 const businessTypes = [
@@ -37,34 +38,22 @@ export default function OnboardingPage() {
     const params = new URLSearchParams(window.location.search);
     const isNew = params.get("mode") === "new";
 
-    if (isNew) {
-      const { data: newBusiness } = await supabase
-        .from("businesses")
-        .insert({ user_id: user.id, name: businessName.trim(), type: finalType })
-        .select("id")
-        .single();
-      if (newBusiness?.id) {
-        document.cookie = `active_business_id=${newBusiness.id}; path=/; max-age=${60*60*24*30}`;
-      }
-    } else {
-      const { data: existing } = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .single();
-      await supabase
-        .from("businesses")
-        .update({ name: businessName.trim(), type: finalType })
-        .eq("id", existing?.id);
-      if (existing?.id) {
-        document.cookie = `active_business_id=${existing.id}; path=/; max-age=${60*60*24*30}`;
-      }
+    try {
+      const bizId = await saveOnboardingBusiness(supabase, user.id, {
+        name: businessName.trim(),
+        type: finalType,
+        isNew,
+      });
+      if (bizId) setActiveBusinessCookie(bizId);
+      await supabase.from("profiles").upsert({ id: user.id, full_name: user.user_metadata?.full_name || user.email?.split("@")[0] }, { onConflict: "id" });
+    } catch {
+      alert("Gagal simpan bisnis. Coba lagi.");
+      setLoading(false);
+      return;
     }
 
     setLoading(false);
-    router.push("/dashboard/inventory");
+    router.push("/dashboard/owner");
   };
 
   const selected = businessTypes.find((b) => b.type === selectedType);

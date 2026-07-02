@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const businessId = searchParams.get("business_id");
+  const next = searchParams.get("next") || "/onboarding";
 
   if (code) {
     const supabase = await createClient();
@@ -20,5 +21,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/dashboard/fnb/kasir", request.url));
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/onboarding";
+  return NextResponse.redirect(new URL(safeNext, request.url));
 }

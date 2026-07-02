@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { saveOnboardingBusiness, setActiveBusinessCookie } from "@/lib/onboarding/save-business";
 import { Store, Bird, UtensilsCrossed, Factory, Briefcase, ShoppingBag, Truck, Heart, Leaf, Wrench, PenLine } from "lucide-react";
 
 const businessTypes = [
@@ -34,13 +35,20 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    await supabase
-      .from("businesses")
-      .update({ name: businessName.trim(), type: finalType })
-      .eq("user_id", user.id);
+    try {
+      const bizId = await saveOnboardingBusiness(supabase, user.id, {
+        name: businessName.trim(),
+        type: finalType,
+      });
+      if (bizId) setActiveBusinessCookie(bizId);
+    } catch {
+      alert("Gagal simpan bisnis. Coba lagi.");
+      setLoading(false);
+      return;
+    }
 
     setLoading(false);
-    router.push("/dashboard/inventory");
+    router.push("/dashboard/owner");
   };
 
   const selected = businessTypes.find((b) => b.type === selectedType);
