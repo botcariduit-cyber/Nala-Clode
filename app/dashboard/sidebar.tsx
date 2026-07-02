@@ -79,7 +79,7 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
               {showLabel && (
                 <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{m.label}</p>
               )}
-              
+              <a
                 href={m.href}
                 onClick={() => onNavigate?.()}
                 title={m.name}
@@ -90,10 +90,11 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
                   background: isActive ? "linear-gradient(135deg, rgba(45,212,191,.12), rgba(139,92,246,.08))" : "transparent",
                   border: isActive ? "0.5px solid rgba(45,212,191,.2)" : "0.5px solid transparent",
                   color: isActive ? "#2DD4BF" : "#5A5B7A",
+                  display: "flex",
                 }}
               >
                 <m.icon size={15} style={{ flexShrink: 0 }} />
-                {expanded && <span className="text-xs whitespace-nowrap font-medium">{m.name}</span>}
+                {expanded && <span className="text-xs whitespace-nowrap font-medium" style={{ marginLeft: 10 }}>{m.name}</span>}
               </a>
             </div>
           );
