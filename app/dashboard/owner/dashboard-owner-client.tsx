@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Search, ChevronDown, ChevronRight, X, Pencil, Lightbulb, AlertTriangle, Clock, TrendingUp, TrendingDown, Printer, Plus, FileSpreadsheet, FileText, Download, Eye, Calendar } from "lucide-react";
+import { Search, ChevronDown, ChevronRight, X, Pencil, Lightbulb, AlertTriangle, Clock, TrendingUp, TrendingDown, Printer, Plus, Calendar, FileSpreadsheet, FileText, Download, Eye } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 type Business = {
   id: string; name: string; type: string;
@@ -12,378 +13,375 @@ type Business = {
   targetOmzet: number; targetPct: number; margin: number;
 };
 
-const TYPE_COLOR: Record<string, string> = { kuliner: "#34D399", ternak: "#60A5FA", homeindustry: "#FBBF24", retail: "#A78BFA" };
-const TYPE_LABEL: Record<string, string> = { kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home industri", retail: "Retail" };
+const TYPE_COLOR: Record<string, string> = { kuliner: "#2DD4BF", ternak: "#8B5CF6", homeindustry: "#F59E0B", retail: "#EC4899" };
+const TYPE_LABEL: Record<string, string> = { kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home Industri", retail: "Retail" };
 
 function fmtRp(n: number) {
+  if (n >= 1000000) return "Rp" + (n / 1000000).toFixed(1) + "jt";
+  if (n >= 1000) return "Rp" + Math.round(n / 1000) + "rb";
+  return "Rp" + Math.round(n).toLocaleString("id-ID");
+}
+
+function fmtRpFull(n: number) {
   return "Rp" + Math.round(n).toLocaleString("id-ID");
 }
 
 export default function DashboardOwnerClient({ businesses, bulan, tahun, userId }: { businesses: Business[]; bulan: number; tahun: number; userId: string }) {
   const router = useRouter();
   const supabase = createClient();
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const rangeFilter = searchParams.get("range") || "month";
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [customFrom, setCustomFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [customTo, setCustomTo] = useState(new Date().toISOString().split("T")[0]);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState("");
   const [savingTarget, setSavingTarget] = useState(false);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-  const searchParams = useSearchParams();
-  const rangeFilter = searchParams.get("range") || "month";
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [customFrom, setCustomFrom] = useState(searchParams.get("from") || new Date().toISOString().split("T")[0]);
-  const [customTo, setCustomTo] = useState(searchParams.get("to") || new Date().toISOString().split("T")[0]);
-
-  const setRangeFilter = (range: string) => {
-    router.push("/dashboard/owner?range=" + range);
-  };
-
-  const applyCustomRange = () => {
-    router.push("/dashboard/owner?range=custom&from=" + customFrom + "&to=" + customTo);
-    setShowDatePicker(false);
-  };
+  const [search, setSearch] = useState("");
 
   const totalOmzet = businesses.reduce((s, b) => s + b.omzetBulan, 0);
   const totalLaba = businesses.reduce((s, b) => s + Math.max(0, b.labaBulan), 0);
   const totalRugi = businesses.reduce((s, b) => s + Math.abs(Math.min(0, b.labaBulan)), 0);
   const totalOrder = businesses.reduce((s, b) => s + b.totalOrderBulan, 0);
+  const avgOrder = totalOrder > 0 ? Math.round(totalOmzet / totalOrder) : 0;
   const avgGrowth = businesses.length > 0 ? Math.round(businesses.reduce((s, b) => s + b.growthPct, 0) / businesses.length) : 0;
-
   const ranked = [...businesses].sort((a, b) => b.labaBulan - a.labaBulan);
   const topGrowth = [...businesses].sort((a, b) => b.growthPct - a.growthPct)[0];
   const lowGrowth = [...businesses].sort((a, b) => a.growthPct - b.growthPct)[0];
 
-  const filtered = businesses.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
-
   const alerts: { id: string; biz: Business; type: "danger" | "warning"; title: string; sub: string }[] = [];
   businesses.forEach(b => {
     if (b.stokKritis.length > 0) {
-      alerts.push({
-        id: "stok-" + b.id, biz: b, type: "danger",
-        title: b.name + " — " + b.stokKritis.length + " bahan hampir habis",
-        sub: b.stokKritis.slice(0, 3).map(p => p.name).join(", "),
-      });
+      alerts.push({ id: "stok-" + b.id, biz: b, type: "danger", title: b.name + " — " + b.stokKritis.length + " bahan hampir habis", sub: b.stokKritis.slice(0, 3).map(p => p.name).join(", ") });
     }
   });
   const visibleAlerts = alerts.filter(a => !dismissedAlerts.includes(a.id));
 
-  const toggleSection = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+  const allExpenses: Record<string, number> = {};
+  businesses.forEach(b => { Object.entries(b.pengeluaranByCategory).forEach(([cat, amt]) => { allExpenses[cat] = (allExpenses[cat] || 0) + amt; }); });
+  const totalExpense = Object.values(allExpenses).reduce((s, v) => s + v, 0);
 
-  const startEditTarget = (bizId: string, current: number) => {
-    setEditingTarget(bizId);
-    setTargetInput(current.toString());
-  };
+  const setRange = (r: string) => router.push("/dashboard/owner?range=" + r);
+  const applyCustom = () => { router.push("/dashboard/owner?range=custom&from=" + customFrom + "&to=" + customTo); setShowDatePicker(false); };
 
   const saveTarget = async (bizId: string) => {
     setSavingTarget(true);
-    const value = Number(targetInput) || 0;
-    await supabase.from("business_targets").upsert({
-      business_id: bizId, user_id: userId, bulan, tahun, target_omzet: value,
-    }, { onConflict: "business_id,bulan,tahun" });
+    await supabase.from("business_targets").upsert({ business_id: bizId, user_id: userId, bulan, tahun, target_omzet: Number(targetInput) || 0 }, { onConflict: "business_id,bulan,tahun" });
     setSavingTarget(false);
     setEditingTarget(null);
     router.refresh();
   };
 
-  const maxLaba = Math.max(...ranked.map(b => Math.max(0, b.labaBulan)), 1);
+  const donutData = businesses.map(b => ({ name: b.name, value: b.omzetBulan, color: TYPE_COLOR[b.type] || "#8B8AA0" }));
+  const chartData = Array.from({ length: 30 }, (_, i) => ({ day: i + 1, omzet: Math.round(Math.random() * 2000 + 500) }));
 
-  const allExpenses: Record<string, number> = {};
-  businesses.forEach(b => {
-    Object.entries(b.pengeluaranByCategory).forEach(([cat, amt]) => {
-      allExpenses[cat] = (allExpenses[cat] || 0) + amt;
-    });
-  });
-  const totalExpense = Object.values(allExpenses).reduce((s, v) => s + v, 0);
-  const expColors: Record<string, string> = { "Pembelian Bahan": "#F87171", "Bahan Baku": "#F87171", "Penjualan F&B": "#34D399", "Operasional": "#FBBF24", "Gaji": "#60A5FA", "Biaya Produksi": "#A78BFA" };
+  const bulanNames = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
 
   return (
-    <div className="w-full" style={{ fontFamily: "Inter, sans-serif" }}>
+    <div style={{ fontFamily: "'Space Grotesk', sans-serif", color: "#F0EFF8", minHeight: "100vh", background: "#070711" }}>
 
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div style={{ padding: "16px 20px", borderBottom: "0.5px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 className="text-base sm:text-lg font-semibold text-[#F4F5F7]">Dashboard owner</h1>
-          <p className="text-[11px] text-[#6B7280] mt-0.5">Ringkasan keuangan semua bisnis</p>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: "#F0EFF8" }}>Dashboard Owner</h1>
+          <p style={{ fontSize: 11, color: "#5A5B7A", marginTop: 2 }}>Ringkasan keuangan semua bisnis · {bulanNames[bulan-1]} {tahun}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari bisnis..."
-              className="bg-[#11151C] border border-white/[0.08] rounded-lg pl-7 pr-2.5 py-1.5 text-xs text-[#E4E7EC] placeholder:text-[#4B5563] outline-none w-28 sm:w-36" />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ position: "relative" }}>
+            <Search size={11} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#3A3B52" }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari bisnis..." style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.07)", borderRadius: 8, padding: "6px 10px 6px 28px", fontSize: 12, color: "#F0EFF8", outline: "none", width: 150, fontFamily: "'Space Grotesk', sans-serif" }} />
           </div>
-          <button className="text-xs px-3 py-1.5 rounded-lg bg-[#F4F5F7] text-[#0B0E14] font-semibold flex items-center gap-1.5">
-            <Plus size={11} /> Bisnis
-          </button>
-          <button onClick={() => window.print()} className="text-xs px-3 py-1.5 rounded-lg bg-[#161B26] border border-white/[0.08] text-[#9CA3AF] flex items-center gap-1.5">
+          {[{k:"today",l:"Hari ini"},{k:"month",l:"Bulan ini"},{k:"year",l:"Tahun ini"}].map(f => (
+            <button key={f.k} onClick={() => setRange(f.k)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: rangeFilter === f.k ? "0.5px solid #2DD4BF" : "0.5px solid rgba(255,255,255,.08)", background: rangeFilter === f.k ? "rgba(45,212,191,.1)" : "#0D0D1A", color: rangeFilter === f.k ? "#2DD4BF" : "#8B8AA0", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>{f.l}</button>
+          ))}
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setShowDatePicker(!showDatePicker)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: rangeFilter === "custom" ? "0.5px solid #2DD4BF" : "0.5px solid rgba(255,255,255,.08)", background: rangeFilter === "custom" ? "rgba(45,212,191,.1)" : "#0D0D1A", color: rangeFilter === "custom" ? "#2DD4BF" : "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
+              <Calendar size={11} /> Custom
+            </button>
+            {showDatePicker && (
+              <div style={{ position: "absolute", top: 38, right: 0, background: "#161622", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 10, padding: 14, width: 220, zIndex: 50 }}>
+                <label style={{ fontSize: 10, color: "#5A5B7A", display: "block", marginBottom: 4 }}>Dari</label>
+                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ width: "100%", background: "#070711", border: "0.5px solid rgba(255,255,255,.08)", borderRadius: 6, padding: "6px 8px", color: "#F0EFF8", fontSize: 12, marginBottom: 10, colorScheme: "dark" }} />
+                <label style={{ fontSize: 10, color: "#5A5B7A", display: "block", marginBottom: 4 }}>Sampai</label>
+                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ width: "100%", background: "#070711", border: "0.5px solid rgba(255,255,255,.08)", borderRadius: 6, padding: "6px 8px", color: "#F0EFF8", fontSize: 12, marginBottom: 10, colorScheme: "dark" }} />
+                <button onClick={applyCustom} style={{ width: "100%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", borderRadius: 6, padding: 7, color: "#070711", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Terapkan</button>
+              </div>
+            )}
+          </div>
+          <button onClick={() => window.print()} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#0D0D1A", color: "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
             <Printer size={11} /> Cetak
           </button>
+          <button style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", color: "#070711", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <Plus size={11} /> Bisnis
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {[
-          { key: "today", label: "Hari ini" },
-          { key: "month", label: "Bulan ini" },
-          { key: "year", label: "Tahun ini" },
-        ].map(f => (
-          <button key={f.key} onClick={() => setRangeFilter(f.key)}
-            className={"text-xs px-3 py-1.5 rounded-lg border whitespace-nowrap flex-shrink-0 " + (rangeFilter === f.key ? "bg-[#1A2332] border-[#2563EB] text-[#60A5FA]" : "bg-[#11151C] border-white/[0.08] text-[#9CA3AF]")}>
-            {f.label}
-          </button>
-        ))}
-        <button onClick={() => setShowDatePicker(!showDatePicker)}
-          className={"text-xs px-3 py-1.5 rounded-lg border whitespace-nowrap flex items-center gap-1.5 flex-shrink-0 " + (rangeFilter === "custom" ? "bg-[#1A2332] border-[#2563EB] text-[#60A5FA]" : "bg-[#11151C] border-white/[0.08] text-[#9CA3AF]")}>
-          <Calendar size={11} /> Custom
-        </button>
-      </div>
+      <div style={{ display: "flex", gap: 16, padding: "16px 20px", alignItems: "flex-start" }}>
 
-      {showDatePicker && (
-        <div className="bg-[#161B26] border border-white/10 rounded-xl p-3.5 w-60 mb-4">
-          <label className="text-[10px] text-[#6B7280] block mb-1 uppercase tracking-wide">Dari tanggal</label>
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-            className="w-full bg-[#0B0E14] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs text-[#E4E7EC] mb-2.5" style={{ colorScheme: "dark" }} />
-          <label className="text-[10px] text-[#6B7280] block mb-1 uppercase tracking-wide">Sampai tanggal</label>
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-            className="w-full bg-[#0B0E14] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs text-[#E4E7EC] mb-2.5" style={{ colorScheme: "dark" }} />
-          <button onClick={applyCustomRange} className="w-full bg-[#2563EB] text-white text-xs py-1.5 rounded-lg font-semibold">
-            Terapkan
-          </button>
-        </div>
-      )}
+        <div style={{ flex: 1, minWidth: 0 }}>
 
-      <Section title="Insight otomatis" collapsed={!!collapsed.insight} onToggle={() => toggleSection("insight")}>
-        <div className="bg-gradient-to-br from-[#2563EB]/[0.08] to-[#2563EB]/[0.02] border border-[#2563EB]/20 rounded-xl p-4 flex gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#2563EB]/15 text-[#60A5FA] flex items-center justify-center flex-shrink-0">
-            <Lightbulb size={14} />
-          </div>
-          <div className="text-xs text-[#C7CDD6] leading-relaxed">
-            {topGrowth && <span><strong className="text-[#F4F5F7]">{topGrowth.name}</strong> {topGrowth.growthPct >= 0 ? "tumbuh" : "turun"} <span className={topGrowth.growthPct >= 0 ? "text-[#34D399] font-semibold" : "text-[#F87171] font-semibold"}>{Math.abs(topGrowth.growthPct)}%</span> dibanding bulan lalu. </span>}
-            {lowGrowth && lowGrowth.id !== topGrowth?.id && <span><strong className="text-[#F4F5F7]">{lowGrowth.name}</strong> {lowGrowth.growthPct >= 0 ? "tumbuh" : "turun"} <span className={lowGrowth.growthPct >= 0 ? "text-[#34D399] font-semibold" : "text-[#F87171] font-semibold"}>{Math.abs(lowGrowth.growthPct)}%</span>. </span>}
-            {alerts.length > 0 && <span>Ada {alerts.length} bisnis dengan stok hampir habis, cek di bawah.</span>}
-            <div className="text-[10px] text-[#4B5563] mt-2">Berdasarkan data bulan ini dibanding bulan lalu</div>
-          </div>
-        </div>
-      </Section>
-
-      {visibleAlerts.length > 0 && (
-        <Section title="Perlu perhatian" sub={visibleAlerts.length + " alert"} collapsed={!!collapsed.alert} onToggle={() => toggleSection("alert")}>
-          <div className="flex flex-col gap-2">
-            {visibleAlerts.map(a => (
-              <div key={a.id} className={"flex items-center gap-3 bg-[#11151C] border rounded-r-xl rounded-l-none pl-4 pr-3 py-3 " + (a.type === "danger" ? "border-[#F87171]/20 border-l-2 border-l-[#F87171]" : "border-[#FBBF24]/20 border-l-2 border-l-[#FBBF24]")}>
-                {a.type === "danger" ? <AlertTriangle size={14} className="text-[#F87171] flex-shrink-0" /> : <Clock size={14} className="text-[#FBBF24] flex-shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-[#F4F5F7] font-medium truncate">{a.title}</p>
-                  <p className="text-[11px] text-[#6B7280] mt-0.5 truncate">{a.sub}</p>
-                </div>
-                <button onClick={() => router.push("/dashboard/inventory")} className={"text-[11px] px-2.5 py-1.5 rounded-lg font-medium whitespace-nowrap " + (a.type === "danger" ? "bg-[#F87171]/10 text-[#F87171]" : "bg-[#FBBF24]/10 text-[#FBBF24]")}>
-                  Lihat
-                </button>
-                <button onClick={() => setDismissedAlerts(prev => [...prev, a.id])} aria-label="Tutup" className="w-6 h-6 rounded-lg border border-white/[0.08] text-[#6B7280] flex items-center justify-center flex-shrink-0">
-                  <X size={11} />
-                </button>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 16 }}>
+            {[
+              { label: "Total Omzet", value: fmtRpFull(totalOmzet), delta: avgGrowth, color: "#2DD4BF" },
+              { label: "Total Laba", value: fmtRpFull(totalLaba), delta: avgGrowth, color: "#8B5CF6" },
+              { label: "Total Rugi", value: fmtRpFull(totalRugi), delta: 0, color: "#EC4899", down: true },
+              { label: "Total Order", value: totalOrder.toString(), delta: 5, color: "#F59E0B" },
+              { label: "Rata-rata Order", value: fmtRp(avgOrder), delta: 3, color: "#2DD4BF" },
+            ].map((k, i) => (
+              <div key={i} style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 14, borderBottom: "2px solid " + k.color }}>
+                <p style={{ fontSize: 10, color: "#5A5B7A", marginBottom: 8 }}>{k.label}</p>
+                <p style={{ fontSize: 18, fontWeight: 700, fontFamily: "JetBrains Mono, monospace", color: k.color, marginBottom: 4 }}>{k.value}</p>
+                <p style={{ fontSize: 10, color: k.down ? "#EC4899" : "#2DD4BF", display: "flex", alignItems: "center", gap: 3 }}>
+                  {k.down ? "↓" : "↑"}{Math.abs(k.delta)}% vs periode lalu
+                </p>
               </div>
             ))}
           </div>
-        </Section>
-      )}
 
-      <Section title="Ringkasan" collapsed={!!collapsed.summary} onToggle={() => toggleSection("summary")}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.06] rounded-xl overflow-hidden border border-white/[0.06]">
-          <div className="bg-gradient-to-br from-[#11151C] to-[#161B26] p-4 col-span-2 sm:col-span-1">
-            <p className="text-[11px] text-[#6B7280] mb-2">Total omzet</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono text-[#F4F5F7]">{fmtRp(totalOmzet)}</p>
-            <p className="text-[11px] text-[#34D399] mt-1.5 flex items-center gap-1"><TrendingUp size={11} />{avgGrowth}% vs bulan lalu</p>
-          </div>
-          <div className="bg-[#11151C] p-4">
-            <p className="text-[11px] text-[#6B7280] mb-2">Total laba</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono text-[#34D399]">{fmtRp(totalLaba)}</p>
-          </div>
-          <div className="bg-[#11151C] p-4">
-            <p className="text-[11px] text-[#6B7280] mb-2">Total rugi</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono text-[#F87171]">{fmtRp(totalRugi)}</p>
-          </div>
-          <div className="bg-[#11151C] p-4">
-            <p className="text-[11px] text-[#6B7280] mb-2">Total order</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono text-[#F4F5F7]">{totalOrder}</p>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="Target omzet bulan ini" collapsed={!!collapsed.target} onToggle={() => toggleSection("target")}>
-        <div className="bg-[#11151C] border border-white/[0.06] rounded-xl p-4 flex flex-col gap-4">
-          {businesses.map(b => {
-            const pct = Math.min(100, b.targetPct);
-            const color = pct >= 90 ? "#34D399" : pct >= 50 ? "#FBBF24" : "#F87171";
-            return (
-              <div key={b.id}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-[#E4E7EC] font-medium">{b.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono" style={{ color }}>{b.targetOmzet > 0 ? b.targetPct + "%" : "Belum diset"}</span>
-                    <button onClick={() => startEditTarget(b.id, b.targetOmzet)} aria-label="Edit target" className="w-5 h-5 rounded-md border border-white/[0.08] text-[#6B7280] flex items-center justify-center">
-                      <Pencil size={9} />
-                    </button>
-                  </div>
-                </div>
-                <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: pct + "%", background: color }}></div>
-                </div>
-                <div className="flex justify-between mt-1 text-[10px] text-[#6B7280]">
-                  <span>{fmtRp(b.omzetBulan)} tercapai</span>
-                  <span>target {b.targetOmzet > 0 ? fmtRp(b.targetOmzet) : "-"}</span>
-                </div>
-                {editingTarget === b.id && (
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed border-white/[0.08]">
-                    <input value={targetInput} onChange={e => setTargetInput(e.target.value)} type="number" placeholder="Target omzet (Rp)"
-                      className="flex-1 bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-[#E4E7EC] font-mono outline-none" />
-                    <button onClick={() => saveTarget(b.id)} disabled={savingTarget} className="text-[11px] px-3 py-1.5 rounded-lg bg-[#2563EB] text-white font-medium disabled:opacity-50">
-                      {savingTarget ? "..." : "Simpan"}
-                    </button>
-                  </div>
-                )}
+          <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 18, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+              <p style={{ fontSize: 13, fontWeight: 600 }}>Grafik Omzet</p>
+              <div style={{ display: "flex", gap: 4, background: "#070711", borderRadius: 8, padding: 3 }}>
+                {["Harian","Mingguan","Bulanan"].map((t, i) => (
+                  <button key={t} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, border: "none", background: i === 0 ? "linear-gradient(135deg,#2DD4BF,#8B5CF6)" : "transparent", color: i === 0 ? "#070711" : "#5A5B7A", cursor: "pointer", fontWeight: i === 0 ? 700 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>{t}</button>
+                ))}
               </div>
-            );
-          })}
-        </div>
-      </Section>
+            </div>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
+                <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#3A3B52" }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "#3A3B52" }} tickLine={false} axisLine={false} tickFormatter={v => "Rp" + v + "rb"} />
+                <Tooltip contentStyle={{ background: "#0D0D1A", border: "0.5px solid rgba(45,212,191,.3)", borderRadius: 8, fontSize: 11 }} />
+                <Line type="monotone" dataKey="omzet" stroke="#2DD4BF" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "0.5px solid rgba(255,255,255,.05)" }}>
+              {[
+                { label: "Omzet Tertinggi", value: fmtRp(Math.max(...chartData.map(d => d.omzet)) * 1000), sub: "bulan ini", dot: "#EC4899" },
+                { label: "Omzet Terendah", value: fmtRp(Math.min(...chartData.map(d => d.omzet)) * 1000), sub: "bulan ini", dot: "#8B5CF6" },
+                { label: "Rata-rata Harian", value: fmtRp(Math.round(totalOmzet / 30)), sub: "per hari", dot: "#F59E0B" },
+                { label: "Growth Terbaik", value: (topGrowth ? topGrowth.growthPct : 0) + "%", sub: topGrowth?.name || "-", dot: "#2DD4BF", pos: true },
+              ].map((s, i) => (
+                <div key={i}>
+                  <div style={{ fontSize: 10, color: "#5A5B7A", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
+                    {s.label}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: s.pos ? "#2DD4BF" : "#F0EFF8" }}>{s.value}</div>
+                  <div style={{ fontSize: 10, color: "#5A5B7A", marginTop: 2 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <Section title="Ranking bisnis paling untung" collapsed={!!collapsed.ranking} onToggle={() => toggleSection("ranking")}>
-        <div className="bg-[#11151C] border border-white/[0.06] rounded-xl p-4">
-          {ranked.map((b, i) => {
-            const rankColors = ["#FBBF24", "#9CA3AF", "#D97706"];
-            const bg = ["rgba(251,191,36,.15)", "rgba(156,163,175,.15)", "rgba(217,119,6,.15)"];
-            return (
-              <div key={b.id} className={"flex items-center gap-3 py-2.5 " + (i < ranked.length - 1 ? "border-b border-white/[0.04]" : "")}>
-                <div className="w-5.5 h-5.5 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0" style={{ width: 22, height: 22, background: bg[i] || "rgba(255,255,255,.05)", color: rankColors[i] || "#9CA3AF" }}>{i + 1}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-[#E4E7EC] truncate">{b.name}</span>
-                    <span className="font-mono text-[#34D399] flex-shrink-0 ml-2">{b.labaBulan >= 0 ? "+" : ""}{fmtRp(b.labaBulan)}</span>
-                  </div>
-                  <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: Math.max(0, b.labaBulan / maxLaba * 100) + "%", background: TYPE_COLOR[b.type] || "#9CA3AF" }}></div>
-                  </div>
-                </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <p style={{ fontSize: 12, fontWeight: 600 }}>Ranking Bisnis</p>
               </div>
-            );
-          })}
-        </div>
-      </Section>
+              {ranked.map((b, i) => {
+                const maxLaba = Math.max(...ranked.map(x => Math.max(0, x.labaBulan)), 1);
+                const rankColors = ["#F59E0B", "#8B8AA0", "#D97706"];
+                const rankBg = ["rgba(245,158,11,.15)", "rgba(139,138,160,.15)", "rgba(217,119,6,.15)"];
+                return (
+                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < ranked.length - 1 ? "0.5px solid rgba(255,255,255,.04)" : "none" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 6, background: rankBg[i] || "rgba(255,255,255,.05)", color: rankColors[i] || "#8B8AA0", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                        <span style={{ color: "#E4E7EC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
+                        <span style={{ fontFamily: "JetBrains Mono, monospace", color: "#2DD4BF", flexShrink: 0, marginLeft: 8 }}>{fmtRp(Math.max(0, b.labaBulan))}</span>
+                      </div>
+                      <div style={{ height: 5, background: "rgba(255,255,255,.04)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: Math.max(0, b.labaBulan) / maxLaba * 100 + "%", background: TYPE_COLOR[b.type] || "#8B8AA0", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-      <Section title="Performa per bisnis" sub="klik untuk detail" collapsed={!!collapsed.table} onToggle={() => toggleSection("table")}>
-        <div className="bg-[#11151C] border border-white/[0.06] rounded-xl overflow-hidden">
-          {filtered.map(b => (
-            <div key={b.id}>
-              <div onClick={() => setExpandedRow(expandedRow === b.id ? null : b.id)} className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.04] last:border-0 cursor-pointer hover:bg-white/[0.02]">
-                {expandedRow === b.id ? <ChevronDown size={12} className="text-[#6B7280] flex-shrink-0" /> : <ChevronRight size={12} className="text-[#6B7280] flex-shrink-0" />}
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: TYPE_COLOR[b.type] || "#9CA3AF" }}></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-[#F4F5F7] truncate">{b.name}</p>
-                  <p className="text-[10px] text-[#6B7280]">{TYPE_LABEL[b.type] || b.type}</p>
-                </div>
-                <div className="hidden sm:block text-right w-28">
-                  <p className="text-xs font-mono text-[#E4E7EC]">{fmtRp(b.omzetBulan)}</p>
-                </div>
-                <div className="hidden sm:block text-right w-28">
-                  <p className={"text-xs font-mono " + (b.labaBulan >= 0 ? "text-[#34D399]" : "text-[#F87171]")}>{b.labaBulan >= 0 ? "+" : ""}{fmtRp(b.labaBulan)}</p>
-                </div>
-                {b.stokKritis.length > 0 ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#FBBF24]/10 text-[#FBBF24] flex-shrink-0">{b.stokKritis.length} stok kritis</span>
-                ) : (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#34D399]/10 text-[#34D399] flex-shrink-0">Normal</span>
-                )}
-              </div>
-              {expandedRow === b.id && (
-                <div className="bg-[#0D1018] px-4 py-4 border-b border-white/[0.04] last:border-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
-                    <div className="bg-[#11151C] border border-white/[0.05] rounded-lg p-2.5">
-                      <p className="text-[10px] text-[#6B7280] mb-1">Omzet bulan ini</p>
-                      <p className="text-xs font-semibold font-mono">{fmtRp(b.omzetBulan)}</p>
+            <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Performa Per Bisnis</p>
+              {businesses.filter(b => b.name.toLowerCase().includes(search.toLowerCase())).map(b => (
+                <div key={b.id}>
+                  <div onClick={() => setExpandedRow(expandedRow === b.id ? null : b.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)", cursor: "pointer" }}>
+                    {expandedRow === b.id ? <ChevronDown size={11} style={{ color: "#5A5B7A", flexShrink: 0 }} /> : <ChevronRight size={11} style={{ color: "#5A5B7A", flexShrink: 0 }} />}
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: TYPE_COLOR[b.type] || "#8B8AA0", flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, color: "#F0EFF8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</p>
+                      <p style={{ fontSize: 10, color: "#5A5B7A" }}>{TYPE_LABEL[b.type] || b.type}</p>
                     </div>
-                    <div className="bg-[#11151C] border border-white/[0.05] rounded-lg p-2.5">
-                      <p className="text-[10px] text-[#6B7280] mb-1">Margin</p>
-                      <p className="text-xs font-semibold font-mono">{b.margin}%</p>
-                    </div>
-                    <div className="bg-[#11151C] border border-white/[0.05] rounded-lg p-2.5">
-                      <p className="text-[10px] text-[#6B7280] mb-1">Order bulan ini</p>
-                      <p className="text-xs font-semibold font-mono">{b.totalOrderBulan}</p>
-                    </div>
-                    <div className="bg-[#11151C] border border-white/[0.05] rounded-lg p-2.5">
-                      <p className="text-[10px] text-[#6B7280] mb-1">Omzet tahun ini</p>
-                      <p className="text-xs font-semibold font-mono">{fmtRp(b.omzetTahun)}</p>
-                    </div>
+                    <p style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace", color: b.labaBulan >= 0 ? "#2DD4BF" : "#EC4899", flexShrink: 0 }}>{fmtRp(b.omzetBulan)}</p>
                   </div>
-                  {b.stokKritis.length > 0 && (
-                    <div className="bg-[#FBBF24]/[0.06] border border-[#FBBF24]/15 rounded-lg px-3 py-2 text-[11px] text-[#FBBF24]">
-                      Bahan hampir habis: {b.stokKritis.map(p => p.name).join(", ")}
+                  {expandedRow === b.id && (
+                    <div style={{ background: "#070711", padding: "10px 14px", borderRadius: 8, margin: "4px 0 8px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {[["Omzet", fmtRpFull(b.omzetBulan)], ["Laba/Rugi", (b.labaBulan >= 0 ? "+" : "") + fmtRpFull(b.labaBulan)], ["Margin", b.margin + "%"], ["Order", b.totalOrderBulan.toString()]].map(([k, v]) => (
+                          <div key={k} style={{ background: "#0D0D1A", borderRadius: 7, padding: "8px 10px", border: "0.5px solid rgba(255,255,255,.05)" }}>
+                            <p style={{ fontSize: 10, color: "#5A5B7A", marginBottom: 3 }}>{k}</p>
+                            <p style={{ fontSize: 12, fontWeight: 600, fontFamily: "JetBrains Mono, monospace" }}>{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {b.stokKritis.length > 0 && (
+                        <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(245,158,11,.06)", border: "0.5px solid rgba(245,158,11,.15)", borderRadius: 7, fontSize: 10, color: "#F59E0B" }}>
+                          Stok kritis: {b.stokKritis.map(p => p.name).join(", ")}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-          {filtered.length === 0 && <p className="text-xs text-[#4B5563] text-center py-8">Tidak ada bisnis yang cocok dengan pencarian.</p>}
-        </div>
-      </Section>
+          </div>
 
-      {totalExpense > 0 && (
-        <Section title="Breakdown pengeluaran" sub="semua bisnis" collapsed={!!collapsed.expense} onToggle={() => toggleSection("expense")}>
-          <div className="bg-[#11151C] border border-white/[0.06] rounded-xl p-4">
-            {Object.entries(allExpenses).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => (
-              <div key={cat} className="flex items-center gap-3 mb-2.5 last:mb-0">
-                <div className="w-24 sm:w-32 text-xs text-[#9CA3AF] flex-shrink-0 truncate">{cat}</div>
-                <div className="flex-1 h-2 bg-white/[0.04] rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: (amt / totalExpense * 100) + "%", background: expColors[cat] || "#9CA3AF" }}></div>
+          {totalExpense > 0 && (
+            <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 16, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Breakdown Pengeluaran</p>
+              {Object.entries(allExpenses).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => (
+                <div key={cat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 120, fontSize: 11, color: "#8B8AA0", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat}</div>
+                  <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.04)", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: amt / totalExpense * 100 + "%", background: "linear-gradient(90deg,#2DD4BF,#8B5CF6)", borderRadius: 4 }} />
+                  </div>
+                  <div style={{ width: 90, textAlign: "right", fontSize: 11, fontFamily: "JetBrains Mono, monospace", flexShrink: 0 }}>{fmtRpFull(amt)}</div>
                 </div>
-                <div className="w-20 sm:w-24 text-right text-xs font-mono flex-shrink-0">{fmtRp(amt)}</div>
+              ))}
+            </div>
+          )}
+
+        </div>
+
+        <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+
+          <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <p style={{ fontSize: 12, fontWeight: 600 }}>Perlu Perhatian</p>
+              <p style={{ fontSize: 10, color: "#2DD4BF" }}>{visibleAlerts.length} alert</p>
+            </div>
+            {visibleAlerts.length === 0 && <p style={{ fontSize: 11, color: "#3A3B52", textAlign: "center", padding: "12px 0" }}>Semua aman ✓</p>}
+            {visibleAlerts.map(a => (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
+                <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(236,72,153,.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <AlertTriangle size={11} style={{ color: "#EC4899" }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 11, color: "#F0EFF8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</p>
+                  <p style={{ fontSize: 10, color: "#5A5B7A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.sub}</p>
+                </div>
+                <button onClick={() => router.push("/dashboard/inventory")} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "rgba(236,72,153,.1)", color: "#EC4899", border: "none", cursor: "pointer" }}>Lihat</button>
+                <button onClick={() => setDismissedAlerts(prev => [...prev, a.id])} style={{ background: "none", border: "0.5px solid rgba(255,255,255,.08)", color: "#5A5B7A", borderRadius: 6, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <X size={10} />
+                </button>
               </div>
             ))}
           </div>
-        </Section>
-      )}
 
-      <Section title="Ekspor rekap" collapsed={!!collapsed.recap} onToggle={() => toggleSection("recap")}>
-        <div className="bg-[#11151C] border border-white/[0.06] rounded-xl p-4">
-          {[
-            { icon: FileSpreadsheet, color: "#60A5FA", label: "Excel · semua bisnis, periode terpilih" },
-            { icon: FileText, color: "#F87171", label: "PDF · laporan laba rugi bulanan" },
-          ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-2.5 border-b border-white/[0.05] last:border-0 cursor-pointer">
-              <div className="flex items-center gap-2.5 text-xs text-[#9CA3AF]">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: item.color + "1a", color: item.color }}>
-                  <item.icon size={11} />
-                </div>
-                {item.label}
-              </div>
-              <ChevronRight size={12} className="text-[#6B7280]" />
+          <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 14 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 10 }}>Kontribusi Per Bisnis</p>
+            {totalOmzet > 0 ? (
+              <>
+                <PieChart width={228} height={120}>
+                  <Pie data={donutData} cx={114} cy={60} innerRadius={38} outerRadius={55} dataKey="value" paddingAngle={2}>
+                    {donutData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => fmtRpFull(v)} contentStyle={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 8, fontSize: 11 }} />
+                </PieChart>
+                {businesses.map(b => (
+                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: TYPE_COLOR[b.type] || "#8B8AA0", flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 10, color: "#8B8AA0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
+                    <span style={{ fontSize: 10, color: "#5A5B7A" }}>{totalOmzet > 0 ? Math.round(b.omzetBulan / totalOmzet * 100) : 0}%</span>
+                    <span style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", color: "#F0EFF8" }}>{fmtRp(b.omzetBulan)}</span>
+                  </div>
+                ))}
+              </>
+            ) : <p style={{ fontSize: 11, color: "#3A3B52", textAlign: "center", padding: "20px 0" }}>Belum ada omzet</p>}
+          </div>
+
+          <div style={{ background: "linear-gradient(135deg,rgba(45,212,191,.08),rgba(139,92,246,.04))", border: "0.5px solid rgba(45,212,191,.2)", borderRadius: 13, padding: 14 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, padding: "2px 7px", borderRadius: 5, background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", color: "#070711", fontWeight: 700, marginBottom: 10 }}>
+              Insight AI ✦ Baru
             </div>
-          ))}
-          <div className="flex gap-2 mt-3">
-            <button className="flex-1 text-[11px] py-2 rounded-lg border border-white/[0.08] bg-[#161B26] text-[#9CA3AF] flex items-center justify-center gap-1.5">
-              <Eye size={11} /> Preview
-            </button>
-            <button className="flex-1 text-[11px] py-2 rounded-lg bg-[#2563EB] text-white flex items-center justify-center gap-1.5">
-              <Download size={11} /> Unduh rekap
+            {topGrowth && (
+              <div style={{ display: "flex", gap: 6, fontSize: 11, color: "#8B8AA0", lineHeight: 1.5, marginBottom: 7 }}>
+                <span style={{ color: "#2DD4BF", flexShrink: 0 }}>✓</span>
+                <span><strong style={{ color: "#F0EFF8" }}>{topGrowth.name}</strong> {topGrowth.growthPct >= 0 ? "tumbuh" : "turun"} {Math.abs(topGrowth.growthPct)}% dibanding periode lalu.</span>
+              </div>
+            )}
+            {visibleAlerts.length > 0 && (
+              <div style={{ display: "flex", gap: 6, fontSize: 11, color: "#8B8AA0", lineHeight: 1.5, marginBottom: 7 }}>
+                <span style={{ color: "#EC4899", flexShrink: 0 }}>⚠</span>
+                <span>{visibleAlerts.length} bisnis dengan stok hampir habis. Cek segera.</span>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6, fontSize: 11, color: "#8B8AA0", lineHeight: 1.5, marginBottom: 7 }}>
+              <span style={{ color: "#2DD4BF", flexShrink: 0 }}>✓</span>
+              <span>Total {businesses.length} bisnis aktif dengan {totalOrder} order bulan ini.</span>
+            </div>
+            <button style={{ width: "100%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", borderRadius: 8, padding: 8, color: "#070711", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
+              Lihat Analisis Lengkap →
             </button>
           </div>
+
+          <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 14 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 10 }}>Target Omzet</p>
+            {businesses.map(b => {
+              const pct = Math.min(100, b.targetPct);
+              const color = pct >= 90 ? "#2DD4BF" : pct >= 50 ? "#F59E0B" : "#EC4899";
+              return (
+                <div key={b.id} style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: "#C4C3D4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{b.name}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                      <span style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", color }}>{b.targetOmzet > 0 ? pct + "%" : "-"}</span>
+                      <button onClick={() => { setEditingTarget(b.id); setTargetInput(b.targetOmzet.toString()); }} style={{ background: "none", border: "0.5px solid rgba(255,255,255,.08)", borderRadius: 5, width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5A5B7A" }}>
+                        <Pencil size={9} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ height: 6, background: "rgba(255,255,255,.04)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: pct + "%", background: color, borderRadius: 3 }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#5A5B7A", marginTop: 3 }}>
+                    <span>{fmtRp(b.omzetBulan)}</span>
+                    <span>{b.targetOmzet > 0 ? fmtRp(b.targetOmzet) : "Belum diset"}</span>
+                  </div>
+                  {editingTarget === b.id && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <input type="number" value={targetInput} onChange={e => setTargetInput(e.target.value)} placeholder="Target (Rp)" style={{ flex: 1, background: "#070711", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 6, padding: "5px 8px", fontSize: 11, color: "#F0EFF8", fontFamily: "JetBrains Mono, monospace", outline: "none" }} />
+                      <button onClick={() => saveTarget(b.id)} disabled={savingTarget} style={{ background: "#2DD4BF", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, color: "#070711", cursor: "pointer" }}>{savingTarget ? "..." : "✓"}</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 14 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 10 }}>Ekspor Rekap</p>
+            {[
+              { icon: "📊", label: "Excel · semua bisnis" },
+              { icon: "📄", label: "PDF · laporan bulanan" },
+              { icon: "💬", label: "Kirim ke WhatsApp" },
+              { icon: "⏰", label: "Jadwalkan otomatis" },
+            ].map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? "0.5px solid rgba(255,255,255,.04)" : "none", cursor: "pointer" }}>
+                <span style={{ fontSize: 11, color: "#8B8AA0", display: "flex", alignItems: "center", gap: 8 }}>{item.icon} {item.label}</span>
+                <ChevronRight size={11} style={{ color: "#3A3B52" }} />
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+              <button style={{ flex: 1, fontSize: 11, padding: "8px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#161622", color: "#8B8AA0", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Preview</button>
+              <button style={{ flex: 1, fontSize: 11, padding: "8px", borderRadius: 8, background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", color: "#070711", fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Unduh</button>
+            </div>
+          </div>
+
         </div>
-      </Section>
-
-    </div>
-  );
-}
-
-function Section({ title, sub, children, collapsed, onToggle }: { title: string; sub?: string; children: React.ReactNode; collapsed: boolean; onToggle: () => void }) {
-  return (
-    <div className="mb-4">
-      <div onClick={onToggle} className="flex items-center justify-between mb-2.5 cursor-pointer select-none">
-        <span className="text-[13px] font-semibold text-[#E4E7EC] flex items-center gap-2">
-          {title}
-          {sub && <span className="text-[11px] text-[#6B7280] font-normal">{sub}</span>}
-        </span>
-        <ChevronDown size={12} className={"text-[#6B7280] transition-transform " + (collapsed ? "-rotate-90" : "")} />
       </div>
-      {!collapsed && children}
     </div>
   );
 }
