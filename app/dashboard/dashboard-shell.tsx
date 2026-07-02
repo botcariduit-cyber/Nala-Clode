@@ -3,10 +3,11 @@ import { useState, useEffect } from "react";
 import Sidebar from "./sidebar";
 import { Menu, X } from "lucide-react";
 
-export default function DashboardShell({ children, businesses, activeBusiness }: {
+export default function DashboardShell({ children, businesses, activeBusiness, userName }: {
   children: React.ReactNode;
   businesses: { id: string; name: string; type: string | null }[];
   activeBusiness: { id: string; name: string; type: string | null } | null;
+  userName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -32,7 +33,7 @@ export default function DashboardShell({ children, businesses, activeBusiness }:
         {mobileOpen && (
           <div className="fixed inset-0 z-40" onClick={() => setMobileOpen(false)}>
             <div className="fixed top-14 left-0 bottom-0 w-72 bg-[#0A0A12] border-r border-white/5 z-50 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <Sidebar expanded={true} setExpanded={() => {}} businesses={businesses} activeBusiness={activeBusiness} onNavigate={() => setMobileOpen(false)} />
+              <Sidebar expanded={true} setExpanded={() => {}} businesses={businesses} activeBusiness={activeBusiness} userName={userName} onNavigate={() => setMobileOpen(false)} />
             </div>
           </div>
         )}
@@ -46,10 +47,10 @@ export default function DashboardShell({ children, businesses, activeBusiness }:
 
   return (
     <>
-      <Sidebar expanded={expanded} setExpanded={setExpanded} businesses={businesses} activeBusiness={activeBusiness} />
+      <Sidebar expanded={expanded} setExpanded={setExpanded} businesses={businesses} activeBusiness={activeBusiness} userName={userName} />
       <main
         className="flex-1 overflow-y-auto"
-        style={{ marginLeft: expanded ? 260 : 72, transition: "margin-left 0.22s cubic-bezier(0.4,0,0.2,1)" }}
+        style={{ marginLeft: expanded ? 220 : 64, transition: "margin-left 0.22s cubic-bezier(0.4,0,0.2,1)" }}
       >
         {children}
       </main>

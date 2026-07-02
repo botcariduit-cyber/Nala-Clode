@@ -1,13 +1,15 @@
 "use client";
-import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import BusinessSwitcher from "./business-switcher";
 
 const baseModules = [
-  { name: "Dashboard Owner", href: "/dashboard/owner", icon: Gauge },
+  { name: "Dashboard Owner", href: "/dashboard/owner", icon: Gauge, label: "MENU UTAMA" },
   { name: "Gercep Chat", href: "/dashboard/chat", icon: MessageCircle },
-  { name: "Keuangan Pribadi", href: "/dashboard/keuangan-pribadi", icon: Wallet },
   { name: "Keuangan Bisnis", href: "/dashboard/keuangan-bisnis", icon: Store },
-  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
+  { name: "Keuangan Pribadi", href: "/dashboard/keuangan-pribadi", icon: Wallet },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package, label: "MANAJEMEN" },
   { name: "Produksi", href: "/dashboard/produksi", icon: Factory },
 ];
 
@@ -23,91 +25,128 @@ const fnb_modules = [
 
 const comingSoonModules = [
   { name: "Smart Profit Calculator", icon: Calculator },
-  { name: "Marketplace Center", icon: ShoppingCart },
   { name: "CRM Pelanggan", icon: Users },
   { name: "AI Marketing", icon: Megaphone },
   { name: "AI Riset Bisnis", icon: BarChart3 },
-  { name: "AI Jual Beli", icon: Camera },
   { name: "Barcode QR Analyzer", icon: QrCode },
-  { name: "AI Kasir", icon: Receipt },
   { name: "Pajak NPWP Center", icon: FileText },
-  { name: "Multi Bisnis", icon: Layers },
-  { name: "Tim dan Komisi Karyawan", icon: Percent },
   { name: "Multi Platform", icon: Smartphone },
 ];
 
 type Business = { id: string; name: string; type: string | null };
 
-export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness, onNavigate }: { 
-  expanded: boolean; 
+export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness, userName, onNavigate }: {
+  expanded: boolean;
   setExpanded: (v: boolean) => void;
   businesses: Business[];
   activeBusiness: Business | null;
+  userName?: string;
   onNavigate?: () => void;
 }) {
+  const pathname = usePathname();
+
+  const allModules = [
+    ...baseModules,
+    ...(activeBusiness?.type === "ternak" ? ternak_modules : []),
+    ...(activeBusiness?.type === "kuliner" ? fnb_modules : []),
+  ];
+
   return (
     <aside
+      className="fixed top-0 left-0 h-screen flex flex-col z-50 overflow-hidden"
+      style={{
+        width: expanded ? 220 : 64,
+        transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
+        background: "#0D0D1A",
+        borderRight: "0.5px solid rgba(255,255,255,.06)",
+      }}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
-      className="fixed top-0 left-0 h-screen border-r border-white/5 flex flex-col z-50 overflow-hidden bg-[#0A0A12]"
-      style={{ width: expanded ? 260 : 72, transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)" }}
     >
-      <div
-        className="absolute w-64 h-64 rounded-full opacity-15 blur-[80px] -top-20 -left-20 pointer-events-none"
-        style={{ background: "linear-gradient(135deg, #38BDF8, #8B5CF6, #EC4899)" }}
-      />
+      <div className="absolute w-48 h-48 rounded-full opacity-10 blur-[60px] -top-16 -left-16 pointer-events-none" style={{ background: "radial-gradient(circle, #2DD4BF, transparent)" }} />
 
-      <div className="px-5 py-5 border-b border-white/5 relative flex items-center" style={{ height: 64 }}>
-        {expanded ? (
-          <span className="font-semibold text-lg whitespace-nowrap">Gercep<span className="holo-text">AI</span></span>
-        ) : (
-          <span className="font-semibold text-lg w-full text-center">G</span>
-        )}
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b" style={{ borderColor: "rgba(255,255,255,.06)", height: 60, flexShrink: 0 }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>G</div>
+        {expanded && <span className="font-bold text-sm whitespace-nowrap" style={{ color: "#F0EFF8" }}>GERCEP <span style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span></span>}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 relative">
-        {expanded && <p className="text-[10px] text-[#2DD4BF] tracking-wide px-2 mb-2 font-medium whitespace-nowrap">MODUL AKTIF</p>}
-        <div className="flex flex-col gap-1 mb-6">
-          {[
-            ...baseModules,
-            ...(activeBusiness?.type === "ternak" ? ternak_modules : []),
-            ...(activeBusiness?.type === "kuliner" ? fnb_modules : []),
-          ].map((m) => (
-            "comingSoon" in m && m.comingSoon ? (
-              <div key={m.name} title={m.name} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#8B8AA0]/40 cursor-not-allowed whitespace-nowrap " + (expanded ? "" : "justify-center")}>
-                <m.icon size={16} className="flex-shrink-0" />
-                {expanded && m.name}
-              </div>
-            ) : (
-              <a key={m.href} href={m.href} title={m.name} onClick={() => onNavigate?.()} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F2F1F8] hover:bg-white/5 transition-colors whitespace-nowrap " + (expanded ? "" : "justify-center")}>
-                <m.icon size={16} className="text-[#8B8AA0] flex-shrink-0" />
-                {expanded && m.name}
+      <nav className="flex-1 overflow-y-auto py-3 px-2" style={{ scrollbarWidth: "none" }}>
+        {allModules.map((m, i) => {
+          const isActive = pathname === m.href;
+          const showLabel = expanded && "label" in m && m.label;
+          return (
+            <div key={m.href}>
+              {showLabel && (
+                <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{m.label}</p>
+              )}
+              
+                href={m.href}
+                onClick={() => onNavigate?.()}
+                title={m.name}
+                className="flex items-center gap-2.5 rounded-lg mb-0.5 transition-all"
+                style={{
+                  padding: expanded ? "7px 10px" : "7px",
+                  justifyContent: expanded ? "flex-start" : "center",
+                  background: isActive ? "linear-gradient(135deg, rgba(45,212,191,.12), rgba(139,92,246,.08))" : "transparent",
+                  border: isActive ? "0.5px solid rgba(45,212,191,.2)" : "0.5px solid transparent",
+                  color: isActive ? "#2DD4BF" : "#5A5B7A",
+                }}
+              >
+                <m.icon size={15} style={{ flexShrink: 0 }} />
+                {expanded && <span className="text-xs whitespace-nowrap font-medium">{m.name}</span>}
               </a>
-            )
-          ))}
-        </div>
-
-        {expanded && <p className="text-[10px] text-[#8B8AA0] tracking-wide px-2 mb-2 font-medium whitespace-nowrap">SEGERA HADIR</p>}
-        <div className="flex flex-col gap-1">
-          {comingSoonModules.map((m) => (
-            <div key={m.name} title={m.name} className={"flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#8B8AA0]/40 cursor-not-allowed whitespace-nowrap " + (expanded ? "" : "justify-center")}>
-              <m.icon size={16} className="flex-shrink-0" />
-              {expanded && m.name}
             </div>
-          ))}
-        </div>
+          );
+        })}
+
+        {expanded && comingSoonModules.length > 0 && (
+          <p className="text-[9px] font-semibold px-2 mt-4 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>SEGERA HADIR</p>
+        )}
+        {comingSoonModules.map(m => (
+          <div
+            key={m.name}
+            title={m.name}
+            className="flex items-center gap-2.5 rounded-lg mb-0.5"
+            style={{
+              padding: expanded ? "7px 10px" : "7px",
+              justifyContent: expanded ? "flex-start" : "center",
+              color: "rgba(90,91,122,.4)",
+              cursor: "not-allowed",
+            }}
+          >
+            <m.icon size={15} style={{ flexShrink: 0 }} />
+            {expanded && <span className="text-xs whitespace-nowrap">{m.name}</span>}
+          </div>
+        ))}
       </nav>
 
       {expanded && (
-        <BusinessSwitcher businesses={businesses} activeBusiness={activeBusiness} />
+        <div className="mx-2 mb-2 rounded-xl p-3" style={{ background: "linear-gradient(135deg, rgba(45,212,191,.08), rgba(139,92,246,.06))", border: "0.5px solid rgba(45,212,191,.15)" }}>
+          <p className="text-xs font-semibold mb-0.5" style={{ color: "#2DD4BF" }}>🚀 Upgrade ke Pro</p>
+          <p className="text-[10px] mb-2.5 leading-relaxed" style={{ color: "#5A5B7A" }}>Akses semua fitur premium tanpa batas</p>
+          <button className="w-full rounded-lg py-1.5 text-[11px] font-bold border-none cursor-pointer" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711", fontFamily: "'Space Grotesk', sans-serif" }}>Upgrade Sekarang</button>
+        </div>
       )}
 
-      <div className="px-3 py-4 border-t border-white/5 relative">
-        <div className={"flex " + (expanded ? "justify-start px-2" : "justify-center")}>
-          <a href="/dashboard/onboarding" title="Logout" className="text-xs text-[#8B8AA0] hover:text-[#EC4899] transition-colors">
-            {expanded ? "Keluar" : "↩"}
-          </a>
-        </div>
+      {expanded && <BusinessSwitcher businesses={businesses} activeBusiness={activeBusiness} />}
+
+      <div className="px-2 py-3 flex-shrink-0" style={{ borderTop: "0.5px solid rgba(255,255,255,.06)" }}>
+        {expanded ? (
+          <div className="flex items-center gap-2 px-2">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>
+              {userName ? userName[0].toUpperCase() : "M"}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold truncate" style={{ color: "#F0EFF8" }}>{userName || "Mahendra"}</p>
+              <p className="text-[10px]" style={{ color: "#5A5B7A" }}>Owner</p>
+            </div>
+            <a href="/dashboard/onboarding" className="ml-auto text-[10px] hover:text-[#EC4899] transition-colors" style={{ color: "#5A5B7A" }}>Keluar</a>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <a href="/dashboard/onboarding" title="Keluar" className="text-xs hover:text-[#EC4899] transition-colors" style={{ color: "#5A5B7A" }}>↩</a>
+          </div>
+        )}
       </div>
     </aside>
   );

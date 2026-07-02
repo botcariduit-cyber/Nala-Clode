@@ -19,9 +19,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const activeId = cookieStore.get("active_business_id")?.value;
   const activeBusiness = businesses?.find((b) => b.id === activeId) || businesses?.[0] || null;
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const userName = profile?.full_name || user.email?.split("@")[0] || "Owner";
+
   return (
     <div className="min-h-screen bg-[#0A0A12] text-[#F2F1F8] flex">
-      <DashboardShell businesses={businesses || []} activeBusiness={activeBusiness}>
+      <DashboardShell businesses={businesses || []} activeBusiness={activeBusiness} userName={userName}>
         {children}
       </DashboardShell>
     </div>
