@@ -211,6 +211,15 @@ export default function DashboardOwnerClient({
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-bold text-white">
               {userName[0].toUpperCase()}
             </div>
+
+            {/* Tambah Bisnis */}
+            <button
+              onClick={() => router.push("/dashboard/onboarding")}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white transition-all"
+              style={{ background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", cursor: "pointer" }}
+            >
+              + Bisnis
+            </button>
           </div>
         </div>
       </header>
