@@ -155,8 +155,6 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
   );
 
   return (
-    <div className="px-2 sm:px-4 py-4 sm:py-6">
-      <DashboardOwnerClient businesses={businessData} bulan={bulan} tahun={tahun} userId={user!.id} userName={userName} />
-    </div>
+    <DashboardOwnerClient businesses={businessData} bulan={bulan} tahun={tahun} userId={user!.id} userName={userName} />
   );
 }

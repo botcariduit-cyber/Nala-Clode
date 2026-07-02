@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
+import {
+  Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator,
+  ShoppingCart, Users, Megaphone, BarChart3, QrCode, Receipt, FileText, Smartphone, Gauge,
+} from "lucide-react";
 import BusinessSwitcher from "./business-switcher";
 
 const baseModules = [
@@ -35,13 +37,14 @@ const comingSoonModules = [
 
 type Business = { id: string; name: string; type: string | null };
 
-export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness, userName, onNavigate }: {
+export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness, userName, onNavigate, embedded }: {
   expanded: boolean;
   setExpanded: (v: boolean) => void;
   businesses: Business[];
   activeBusiness: Business | null;
   userName?: string;
   onNavigate?: () => void;
+  embedded?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -53,99 +56,108 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
 
   return (
     <aside
-      className="fixed top-0 left-0 h-screen flex flex-col z-50 overflow-hidden"
+      className={[
+        "flex h-screen flex-col overflow-hidden border-r border-white/[0.06] bg-[#0D0D1A] z-50",
+        embedded ? "relative w-full" : "fixed top-0 left-0",
+      ].join(" ")}
       style={{
-        width: expanded ? 220 : 64,
-        transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
-        background: "#0D0D1A",
-        borderRight: "0.5px solid rgba(255,255,255,.06)",
+        width: embedded ? "100%" : expanded ? 220 : 64,
+        transition: embedded ? undefined : "width 0.22s cubic-bezier(0.4,0,0.2,1)",
       }}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
+      onMouseEnter={() => !embedded && setExpanded(true)}
+      onMouseLeave={() => !embedded && setExpanded(false)}
     >
-      <div className="absolute w-48 h-48 rounded-full opacity-10 blur-[60px] -top-16 -left-16 pointer-events-none" style={{ background: "radial-gradient(circle, #2DD4BF, transparent)" }} />
+      <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full opacity-10 blur-[60px]"
+        style={{ background: "radial-gradient(circle, #2DD4BF, transparent)" }} />
 
-      <div className="flex items-center gap-2.5 px-4 py-4 border-b" style={{ borderColor: "rgba(255,255,255,.06)", height: 60, flexShrink: 0 }}>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>G</div>
-        {expanded && <span className="font-bold text-sm whitespace-nowrap" style={{ color: "#F0EFF8" }}>GERCEP <span style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span></span>}
+      {/* Logo */}
+      <div className="flex h-[60px] flex-shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-4">
+        <div className="gercep-gradient-btn flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold">G</div>
+        {expanded && (
+          <span className="whitespace-nowrap text-sm font-bold text-[#F0EFF8]">
+            GERCEP <span className="holo-text">AI</span>
+          </span>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 px-2" style={{ scrollbarWidth: "none" }}>
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-2 py-3" style={{ scrollbarWidth: "none" }}>
         {allModules.map((m) => {
           const isActive = pathname === m.href;
           const showLabel = expanded && "label" in m && (m as { label?: string }).label;
           return (
             <div key={m.href}>
               {showLabel && (
-                <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{(m as { label?: string }).label}</p>
+                <p className="mb-1.5 mt-3 px-2 text-[9px] font-semibold tracking-[0.08em] text-[#3A3B52] whitespace-nowrap">
+                  {(m as { label?: string }).label}
+                </p>
               )}
               <a
                 href={m.href}
                 onClick={() => onNavigate?.()}
                 title={m.name}
-                className="flex items-center gap-2.5 rounded-lg mb-0.5 transition-all"
-                style={{
-                  padding: expanded ? "7px 10px" : "7px",
-                  justifyContent: expanded ? "flex-start" : "center",
-                  background: isActive ? "linear-gradient(135deg, rgba(45,212,191,.12), rgba(139,92,246,.08))" : "transparent",
-                  border: isActive ? "0.5px solid rgba(45,212,191,.2)" : "0.5px solid transparent",
-                  color: isActive ? "#2DD4BF" : "#5A5B7A",
-                  display: "flex",
-                }}
+                className={[
+                  "mb-0.5 flex items-center gap-2.5 rounded-lg transition-all duration-200",
+                  expanded ? "px-2.5 py-[7px]" : "justify-center p-[7px]",
+                  isActive
+                    ? "border border-[#2DD4BF]/20 bg-gradient-to-r from-[#2DD4BF]/[0.12] to-[#8B5CF6]/[0.08] text-[#2DD4BF]"
+                    : "border border-transparent text-[#5A5B7A] hover:bg-white/[0.03] hover:text-[#8B8AA0]",
+                ].join(" ")}
               >
-                <m.icon size={15} style={{ flexShrink: 0 }} />
-                {expanded && <span className="text-xs whitespace-nowrap font-medium" style={{ marginLeft: 10 }}>{m.name}</span>}
+                <m.icon size={15} className="flex-shrink-0" />
+                {expanded && <span className="ml-2.5 whitespace-nowrap text-xs font-medium">{m.name}</span>}
               </a>
             </div>
           );
         })}
 
         {comingSoonModules.length > 0 && expanded && (
-          <p className="text-[9px] font-semibold px-2 mt-4 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>SEGERA HADIR</p>
+          <p className="mb-1.5 mt-4 px-2 text-[9px] font-semibold tracking-[0.08em] text-[#3A3B52] whitespace-nowrap">SEGERA HADIR</p>
         )}
         {comingSoonModules.map(m => (
           <div
             key={m.name}
             title={m.name}
-            className="flex items-center gap-2.5 rounded-lg mb-0.5"
-            style={{
-              padding: expanded ? "7px 10px" : "7px",
-              justifyContent: expanded ? "flex-start" : "center",
-              color: "rgba(90,91,122,.4)",
-              cursor: "not-allowed",
-            }}
+            className={[
+              "mb-0.5 flex cursor-not-allowed items-center gap-2.5 rounded-lg text-[rgba(90,91,122,.4)]",
+              expanded ? "px-2.5 py-[7px]" : "justify-center p-[7px]",
+            ].join(" ")}
           >
-            <m.icon size={15} style={{ flexShrink: 0 }} />
-            {expanded && <span className="text-xs whitespace-nowrap" style={{ marginLeft: 10 }}>{m.name}</span>}
+            <m.icon size={15} className="flex-shrink-0" />
+            {expanded && <span className="ml-2.5 whitespace-nowrap text-xs">{m.name}</span>}
           </div>
         ))}
       </nav>
 
+      {/* Upgrade */}
       {expanded && (
-        <div className="mx-2 mb-2 rounded-xl p-3" style={{ background: "linear-gradient(135deg, rgba(45,212,191,.08), rgba(139,92,246,.06))", border: "0.5px solid rgba(45,212,191,.15)" }}>
-          <p className="text-xs font-semibold mb-0.5" style={{ color: "#2DD4BF" }}>🚀 Upgrade ke Pro</p>
-          <p className="text-[10px] mb-2.5 leading-relaxed" style={{ color: "#5A5B7A" }}>Akses semua fitur premium tanpa batas</p>
-          <button className="w-full rounded-lg py-1.5 text-[11px] font-bold border-none cursor-pointer" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>Upgrade Sekarang</button>
+        <div className="mx-2 mb-2 rounded-xl border border-[#2DD4BF]/15 bg-gradient-to-br from-[#2DD4BF]/[0.08] to-[#8B5CF6]/[0.06] p-3">
+          <p className="mb-0.5 text-xs font-semibold text-[#2DD4BF]">🚀 Upgrade ke Pro</p>
+          <p className="mb-2.5 text-[10px] leading-relaxed text-[#5A5B7A]">Akses semua fitur premium tanpa batas</p>
+          <button className="gercep-gradient-btn w-full cursor-pointer rounded-lg py-1.5 text-[11px] font-bold transition-opacity hover:opacity-90">
+            Upgrade Sekarang
+          </button>
         </div>
       )}
 
       {expanded && <BusinessSwitcher businesses={businesses} activeBusiness={activeBusiness} />}
 
-      <div className="px-2 py-3 flex-shrink-0" style={{ borderTop: "0.5px solid rgba(255,255,255,.06)" }}>
+      {/* Profile */}
+      <div className="flex-shrink-0 border-t border-white/[0.06] px-2 py-3">
         {expanded ? (
           <div className="flex items-center gap-2 px-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>
+            <div className="gercep-gradient-btn flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold">
               {userName ? userName[0].toUpperCase() : "M"}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold truncate" style={{ color: "#F0EFF8" }}>{userName || "Owner"}</p>
-              <p className="text-[10px]" style={{ color: "#5A5B7A" }}>Owner</p>
+              <p className="truncate text-xs font-semibold text-[#F0EFF8]">{userName || "Owner"}</p>
+              <p className="text-[10px] text-[#5A5B7A]">Owner</p>
             </div>
-            <a href="/dashboard/onboarding" className="ml-auto text-[10px] hover:text-[#EC4899] transition-colors" style={{ color: "#5A5B7A" }}>Keluar</a>
+            <a href="/dashboard/onboarding" className="ml-auto text-[10px] text-[#5A5B7A] transition-colors hover:text-[#EC4899]">Keluar</a>
           </div>
         ) : (
           <div className="flex justify-center">
-            <a href="/dashboard/onboarding" title="Keluar" className="text-xs hover:text-[#EC4899] transition-colors" style={{ color: "#5A5B7A" }}>&#8617;</a>
+            <a href="/dashboard/onboarding" title="Keluar" className="text-xs text-[#5A5B7A] transition-colors hover:text-[#EC4899]">↩</a>
           </div>
         )}
       </div>

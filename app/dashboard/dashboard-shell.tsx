@@ -25,19 +25,23 @@ export default function DashboardShell({ children, businesses, activeBusiness, u
   if (isMobile) {
     return (
       <div className="min-h-screen bg-[#070711] text-[#F2F1F8]">
-        <div className="fixed top-0 left-0 right-0 h-14 bg-[#0D0D1A] border-b border-white/5 flex items-center justify-between px-4 z-50">
-          <span className="font-semibold text-lg">Gercep<span className="holo-text">AI</span></span>
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="p-2 rounded-lg hover:bg-white/5">
+        <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-white/[0.06] bg-[#0D0D1A] px-4">
+          <span className="text-lg font-semibold">Gercep<span className="holo-text">AI</span></span>
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="rounded-lg p-2 transition-colors hover:bg-white/[0.05]">
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
+
         {mobileOpen && (
           <div className="fixed inset-0 z-40" onClick={() => setMobileOpen(false)}>
-            <div className="fixed top-14 left-0 bottom-0 w-64 z-50 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <Sidebar expanded={true} setExpanded={() => {}} businesses={businesses} activeBusiness={activeBusiness} userName={userName} onNavigate={() => setMobileOpen(false)} />
+            <div className="fixed top-14 left-0 bottom-0 z-50 w-64 overflow-y-auto border-r border-white/[0.06] bg-[#0D0D1A]"
+              onClick={(e) => e.stopPropagation()}>
+              <Sidebar embedded expanded={true} setExpanded={() => {}} businesses={businesses}
+                activeBusiness={activeBusiness} userName={userName} onNavigate={() => setMobileOpen(false)} />
             </div>
           </div>
         )}
+
         <main className="pt-14">{children}</main>
       </div>
     );
@@ -47,8 +51,8 @@ export default function DashboardShell({ children, businesses, activeBusiness, u
     <>
       <Sidebar expanded={expanded} setExpanded={setExpanded} businesses={businesses} activeBusiness={activeBusiness} userName={userName} />
       <main
-        className="flex-1 overflow-y-auto"
-        style={{ marginLeft: expanded ? 220 : 64, transition: "margin-left 0.22s cubic-bezier(0.4,0,0.2,1)" }}
+        className="flex-1 overflow-y-auto bg-[#070711] transition-[margin-left] duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+        style={{ marginLeft: expanded ? 220 : 64 }}
       >
         {children}
       </main>
