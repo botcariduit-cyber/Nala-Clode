@@ -7,6 +7,13 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user!.id)
+    .maybeSingle();
+  const userName = profile?.full_name || user?.email?.split("@")[0] || "Owner";
+
   const { data: businesses } = await supabase
     .from("businesses")
     .select("id, name, type")
@@ -149,7 +156,7 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
 
   return (
     <div className="px-2 sm:px-4 py-4 sm:py-6">
-      <DashboardOwnerClient businesses={businessData} bulan={bulan} tahun={tahun} userId={user!.id} />
+      <DashboardOwnerClient businesses={businessData} bulan={bulan} tahun={tahun} userId={user!.id} userName={userName} />
     </div>
   );
 }
