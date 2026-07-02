@@ -43,7 +43,7 @@ export default function DashboardShell({ children, userName }: {
               className="fixed top-14 left-0 bottom-0 z-50 w-64 overflow-y-auto border-r border-white/[0.06] bg-[#111827]"
               onClick={(e) => e.stopPropagation()}
             >
-              <Sidebar embedded userName={userName} onNavigate={() => setMobileOpen(false)} />
+              <Sidebar expanded={true} setExpanded={() => {}} businesses={businesses} activeBusiness={activeBusiness} userName={userName} onNavigate={() => setMobileOpen(false)} />
             </div>
           </div>
         )}
