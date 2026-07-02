@@ -2,9 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-
-const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL || "demo@gercep.id";
-const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD || "Gercep123!";
+import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/demo/config";
+import { signInDemoAccount } from "@/lib/demo/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,7 +35,16 @@ export default function LoginPage() {
   const handleDemoLogin = async () => {
     setEmail(DEMO_EMAIL);
     setPassword(DEMO_PASSWORD);
-    await doLogin(DEMO_EMAIL, DEMO_PASSWORD);
+    setError("");
+    setLoading(true);
+    const result = await signInDemoAccount(supabase);
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.push("/dashboard/owner");
+    router.refresh();
   };
 
   return (
@@ -67,7 +75,7 @@ export default function LoginPage() {
 
         <button type="button" onClick={handleDemoLogin} disabled={loading}
           className="w-full mt-3 py-3.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 font-semibold text-sm hover:bg-violet-500/20 disabled:opacity-50">
-          {loading ? "Masuk..." : "🚀 Masuk Akun Demo"}
+          {loading ? "Menyiapkan demo..." : "🚀 Masuk Akun Demo"}
         </button>
         <p className="text-center text-[10px] text-[#5A5B7A] mt-2">
           Demo: {DEMO_EMAIL} · {DEMO_PASSWORD}

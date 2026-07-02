@@ -1,31 +1,34 @@
 # Akun Demo Gercep AI
 
-Buat akun demo di **Supabase Dashboard → Authentication → Users → Add user**:
+Akun demo **otomatis dibuat** saat pembeli klik **Masuk Akun Demo** (`/login`) atau **Coba Akun Demo** (`/signup`).
 
 | Field | Value |
 |-------|-------|
 | Email | `demo@gercep.id` |
 | Password | `Gercep123!` |
-| Auto Confirm | ✅ Yes |
 
-Setelah user dibuat, jalankan SQL ini di **SQL Editor** (ganti `USER_ID` dengan UUID user demo):
+## Data contoh yang terisi otomatis
 
-```sql
--- Ganti USER_ID dengan id dari auth.users untuk demo@gercep.id
--- SELECT id FROM auth.users WHERE email = 'demo@gercep.id';
+- **Warung Pak Budi** (kuliner) — omzet & transaksi
+- **Kebun Sejahtera** (pertanian) — panen, lahan, biaya
+- **Ternak Makmur** (ternak) — batch ayam + transaksi farm
 
-INSERT INTO profiles (id, full_name) VALUES ('USER_ID', 'Demo Gercep')
-ON CONFLICT (id) DO UPDATE SET full_name = 'Demo Gercep';
+Dashboard Owner langsung menampilkan ranking untung/rugi multi-bisnis.
 
--- Contoh 3 bisnis berbeda untuk demo multi-bisnis
-INSERT INTO businesses (user_id, name, type) VALUES
-  ('USER_ID', 'Warung Pak Budi', 'kuliner'),
-  ('USER_ID', 'Kebun Sejahtera', 'pertanian'),
-  ('USER_ID', 'Ternak Makmur', 'ternak');
+## Wajib: env di Vercel
+
+Tambahkan di **Vercel → Settings → Environment Variables**:
+
+```
+SUPABASE_SERVICE_ROLE_KEY=eyJ... (dari Supabase → Settings → API → service_role)
 ```
 
-Login di app: **Masuk Akun Demo** atau manual `demo@gercep.id` / `Gercep123!`
+Tanpa key ini, tombol demo gagal dengan pesan error jelas.
 
-Override via Vercel env (opsional):
+Opsional override:
 - `NEXT_PUBLIC_DEMO_EMAIL`
 - `NEXT_PUBLIC_DEMO_PASSWORD`
+
+## Reset demo
+
+Hapus user `demo@gercep.id` di Supabase Auth, lalu klik tombol demo lagi — data akan di-seed ulang.
