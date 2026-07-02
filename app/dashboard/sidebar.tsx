@@ -1,111 +1,153 @@
 "use client";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard, Wallet, Package, Mic, BarChart3, Users, Megaphone,
-  Bot, Sparkles, Zap, ChevronDown,
-} from "lucide-react";
+import { Wallet, Store, MessageCircle, Package, Factory, Bird, Calculator, ShoppingCart, Users, Megaphone, BarChart3, Camera, QrCode, Receipt, FileText, Layers, Percent, Smartphone, Gauge } from "lucide-react";
+import BusinessSwitcher from "./business-switcher";
 
-const navItems = [
-  { name: "Dashboard", href: "/dashboard/owner", icon: LayoutDashboard },
-  { name: "Keuangan", href: "/dashboard/keuangan-bisnis", icon: Wallet },
-  { name: "Stok & Barang", href: "/dashboard/inventory", icon: Package },
-  { name: "AI Voice", href: "/dashboard/chat", icon: Mic },
-  { name: "Riset & Analitik", href: "/dashboard/owner", icon: BarChart3, badge: "Sekarang", badgeColor: "purple" },
-  { name: "CRM", href: "/dashboard/keuangan-bisnis", icon: Users, disabled: true },
-  { name: "Marketing", href: "/dashboard/keuangan-bisnis", icon: Megaphone, disabled: true },
-  { name: "Agen AI", href: "/dashboard/chat", icon: Bot },
-  { name: "Insight AI", href: "/dashboard/owner", icon: Sparkles, badge: "Baru", badgeColor: "violet" },
+const baseModules = [
+  { name: "Dashboard Owner", href: "/dashboard/owner", icon: Gauge, label: "MENU UTAMA" },
+  { name: "Gercep Chat", href: "/dashboard/chat", icon: MessageCircle },
+  { name: "Keuangan Bisnis", href: "/dashboard/keuangan-bisnis", icon: Store },
+  { name: "Keuangan Pribadi", href: "/dashboard/keuangan-pribadi", icon: Wallet },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package, label: "MANAJEMEN" },
+  { name: "Produksi", href: "/dashboard/produksi", icon: Factory },
 ];
 
-export default function Sidebar({ userName, onNavigate, embedded }: {
+const ternak_modules = [
+  { name: "Manajemen Ternak", href: "/dashboard/peternakan", icon: Bird },
+];
+
+const fnb_modules = [
+  { name: "Master Menu", href: "/dashboard/fnb/menu", icon: Receipt },
+  { name: "Kasir", href: "/dashboard/fnb/kasir", icon: ShoppingCart },
+  { name: "Karyawan", href: "/dashboard/fnb/karyawan", icon: Users },
+];
+
+const comingSoonModules = [
+  { name: "Smart Profit Calculator", icon: Calculator },
+  { name: "CRM Pelanggan", icon: Users },
+  { name: "AI Marketing", icon: Megaphone },
+  { name: "AI Riset Bisnis", icon: BarChart3 },
+  { name: "Barcode QR Analyzer", icon: QrCode },
+  { name: "Pajak NPWP Center", icon: FileText },
+  { name: "Multi Platform", icon: Smartphone },
+];
+
+type Business = { id: string; name: string; type: string | null };
+
+export default function Sidebar({ expanded, setExpanded, businesses, activeBusiness, userName, onNavigate }: {
+  expanded: boolean;
+  setExpanded: (v: boolean) => void;
+  businesses: Business[];
+  activeBusiness: Business | null;
   userName?: string;
   onNavigate?: () => void;
-  embedded?: boolean;
 }) {
   const pathname = usePathname();
-  const displayName = userName || "Mahendra";
+
+  const allModules = [
+    ...baseModules,
+    ...(activeBusiness?.type === "ternak" ? ternak_modules : []),
+    ...(activeBusiness?.type === "kuliner" ? fnb_modules : []),
+  ];
 
   return (
-    <aside className={[
-      "flex h-screen w-64 flex-col border-r border-white/[0.06] bg-[#111827]",
-      embedded ? "relative" : "fixed top-0 left-0 z-50",
-    ].join(" ")}>
-      {/* Logo */}
-      <div className="flex h-[60px] flex-shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-5">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600">
-          <Zap size={16} className="text-white" fill="white" />
-        </div>
-        <span className="text-sm font-bold tracking-wide text-white">
-          GERCEP <span className="holo-text">AI</span>
-        </span>
+    <aside
+      className="fixed top-0 left-0 h-screen flex flex-col z-50 overflow-hidden"
+      style={{
+        width: expanded ? 220 : 64,
+        transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
+        background: "#0D0D1A",
+        borderRight: "0.5px solid rgba(255,255,255,.06)",
+      }}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
+      <div className="absolute w-48 h-48 rounded-full opacity-10 blur-[60px] -top-16 -left-16 pointer-events-none" style={{ background: "radial-gradient(circle, #2DD4BF, transparent)" }} />
+
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b" style={{ borderColor: "rgba(255,255,255,.06)", height: 60, flexShrink: 0 }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>G</div>
+        {expanded && <span className="font-bold text-sm whitespace-nowrap" style={{ color: "#F0EFF8" }}>GERCEP <span style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span></span>}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4" style={{ scrollbarWidth: "none" }}>
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href === "/dashboard/owner" && pathname.startsWith("/dashboard/owner"));
-          const isDisabled = item.disabled;
-
+      <nav className="flex-1 overflow-y-auto py-3 px-2" style={{ scrollbarWidth: "none" }}>
+        {allModules.map((m) => {
+          const isActive = pathname === m.href;
+          const showLabel = expanded && "label" in m && (m as { label?: string }).label;
           return (
-            <a
-              key={item.name}
-              href={isDisabled ? "#" : item.href}
-              onClick={(e) => {
-                if (isDisabled) { e.preventDefault(); return; }
-                onNavigate?.();
-              }}
-              className={[
-                "group mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200",
-                isActive
-                  ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
-                  : isDisabled
-                    ? "cursor-not-allowed text-slate-600 opacity-50"
-                    : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200",
-              ].join(" ")}
-            >
-              <item.icon
-                size={16}
-                className={isActive ? "text-white" : "text-violet-400 group-hover:text-violet-300"}
-              />
-              <span className="flex-1 truncate">{item.name}</span>
-              {item.badge && (
-                <span className={[
-                  "rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                  item.badgeColor === "purple"
-                    ? "bg-violet-500/20 text-violet-300"
-                    : "bg-indigo-500/20 text-indigo-300",
-                ].join(" ")}>
-                  {item.badge}
-                </span>
+            <div key={m.href}>
+              {showLabel && (
+                <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{(m as { label?: string }).label}</p>
               )}
-            </a>
+              
+                href={m.href}
+                onClick={() => onNavigate?.()}
+                title={m.name}
+                className="flex items-center gap-2.5 rounded-lg mb-0.5 transition-all"
+                style={{
+                  padding: expanded ? "7px 10px" : "7px",
+                  justifyContent: expanded ? "flex-start" : "center",
+                  background: isActive ? "linear-gradient(135deg, rgba(45,212,191,.12), rgba(139,92,246,.08))" : "transparent",
+                  border: isActive ? "0.5px solid rgba(45,212,191,.2)" : "0.5px solid transparent",
+                  color: isActive ? "#2DD4BF" : "#5A5B7A",
+                  display: "flex",
+                }}
+              >
+                <m.icon size={15} style={{ flexShrink: 0 }} />
+                {expanded && <span className="text-xs whitespace-nowrap font-medium" style={{ marginLeft: 10 }}>{m.name}</span>}
+              </a>
+            </div>
           );
         })}
+
+        {comingSoonModules.length > 0 && expanded && (
+          <p className="text-[9px] font-semibold px-2 mt-4 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>SEGERA HADIR</p>
+        )}
+        {comingSoonModules.map(m => (
+          <div
+            key={m.name}
+            title={m.name}
+            className="flex items-center gap-2.5 rounded-lg mb-0.5"
+            style={{
+              padding: expanded ? "7px 10px" : "7px",
+              justifyContent: expanded ? "flex-start" : "center",
+              color: "rgba(90,91,122,.4)",
+              cursor: "not-allowed",
+            }}
+          >
+            <m.icon size={15} style={{ flexShrink: 0 }} />
+            {expanded && <span className="text-xs whitespace-nowrap" style={{ marginLeft: 10 }}>{m.name}</span>}
+          </div>
+        ))}
       </nav>
 
-      {/* Upgrade CTA */}
-      <div className="mx-3 mb-3 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-600/15 to-indigo-600/10 p-4">
-        <p className="mb-1 text-xs font-semibold text-violet-300">🚀 Premium Upgrade</p>
-        <p className="mb-3 text-[11px] leading-relaxed text-slate-500">
-          Akses semua fitur premium tanpa batas
-        </p>
-        <button className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2 text-[11px] font-bold text-white transition-opacity hover:opacity-90">
-          Upgrade Sekarang
-        </button>
-      </div>
-
-      {/* Profile */}
-      <div className="border-t border-white/[0.06] px-4 py-3">
-        <div className="flex cursor-pointer items-center gap-3 rounded-xl px-1 py-1 transition-colors hover:bg-white/[0.03]">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-bold text-white">
-            {displayName[0].toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-            <p className="text-[11px] text-slate-500">Owner</p>
-          </div>
-          <ChevronDown size={14} className="flex-shrink-0 text-slate-500" />
+      {expanded && (
+        <div className="mx-2 mb-2 rounded-xl p-3" style={{ background: "linear-gradient(135deg, rgba(45,212,191,.08), rgba(139,92,246,.06))", border: "0.5px solid rgba(45,212,191,.15)" }}>
+          <p className="text-xs font-semibold mb-0.5" style={{ color: "#2DD4BF" }}>🚀 Upgrade ke Pro</p>
+          <p className="text-[10px] mb-2.5 leading-relaxed" style={{ color: "#5A5B7A" }}>Akses semua fitur premium tanpa batas</p>
+          <button className="w-full rounded-lg py-1.5 text-[11px] font-bold border-none cursor-pointer" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>Upgrade Sekarang</button>
         </div>
+      )}
+
+      {expanded && <BusinessSwitcher businesses={businesses} activeBusiness={activeBusiness} />}
+
+      <div className="px-2 py-3 flex-shrink-0" style={{ borderTop: "0.5px solid rgba(255,255,255,.06)" }}>
+        {expanded ? (
+          <div className="flex items-center gap-2 px-2">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #2DD4BF, #8B5CF6)", color: "#070711" }}>
+              {userName ? userName[0].toUpperCase() : "M"}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold truncate" style={{ color: "#F0EFF8" }}>{userName || "Owner"}</p>
+              <p className="text-[10px]" style={{ color: "#5A5B7A" }}>Owner</p>
+            </div>
+            <a href="/dashboard/onboarding" className="ml-auto text-[10px] hover:text-[#EC4899] transition-colors" style={{ color: "#5A5B7A" }}>Keluar</a>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <a href="/dashboard/onboarding" title="Keluar" className="text-xs hover:text-[#EC4899] transition-colors" style={{ color: "#5A5B7A" }}>&#8617;</a>
+          </div>
+        )}
       </div>
     </aside>
   );
