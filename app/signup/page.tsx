@@ -13,13 +13,11 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
     setLoading(true);
 
     const result = await registerAccount(supabase, { name, email, password });
@@ -30,18 +28,12 @@ export default function SignupPage() {
       return;
     }
 
-    if (result.needsEmailConfirm) {
-      setSuccess(result.message || "Cek email kamu untuk konfirmasi.");
-      return;
-    }
-
     router.push("/onboarding");
     router.refresh();
   };
 
   const handleDemoSignup = async () => {
     setError("");
-    setSuccess("");
     setLoading(true);
     const result = await signInDemoAccount(supabase);
     setLoading(false);
@@ -77,7 +69,6 @@ export default function SignupPage() {
           </div>
 
           {error && <p className="text-sm text-[#EC4899]">{error}</p>}
-          {success && <p className="text-sm text-emerald-400">{success}</p>}
 
           <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-semibold disabled:opacity-50 mt-2">
             {loading ? "Membuat akun..." : "Daftar Akun Saya"}

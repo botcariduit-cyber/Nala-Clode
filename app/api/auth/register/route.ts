@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+async function findUserByEmail(admin: NonNullable<ReturnType<typeof createAdminClient>>, email: string) {
+  const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  return data?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const name = String(body.name || "").trim();
@@ -13,13 +18,22 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   if (!admin) {
-    return NextResponse.json({ fallback: true });
+    return NextResponse.json({
+      code: "NO_SERVICE_ROLE",
+      error: "Server belum punya SUPABASE_SERVICE_ROLE_KEY — daftar otomatis nonaktif.",
+    }, { status: 503 });
   }
 
-  const { data: listed } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const exists = listed?.users?.some(u => u.email?.toLowerCase() === email);
-  if (exists) {
-    return NextResponse.json({ error: "Email sudah terdaftar. Coba masuk." }, { status: 409 });
+  const existing = await findUserByEmail(admin, email);
+
+  if (existing) {
+    await admin.auth.admin.updateUserById(existing.id, {
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: name },
+    });
+    await admin.from("profiles").upsert({ id: existing.id, full_name: name }, { onConflict: "id" });
+    return NextResponse.json({ ok: true, reactivated: true });
   }
 
   const { data, error } = await admin.auth.admin.createUser({
