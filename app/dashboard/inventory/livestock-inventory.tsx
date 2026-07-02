@@ -250,7 +250,7 @@ export default function LivestockInventory({ products, userId, businessId }: { p
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B8AA0]" />
           <input type="text" placeholder="Cari hewan, pakan, obat..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-8 pr-3 py-2 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] text-sm placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50" />
         </div>
-        <a href="/dashboard/chat" className="text-xs px-3 py-2 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium whitespace-nowrap">+ Chat AI</a>
+        <a href="/dashboard/chat" className="text-xs px-3 py-2 rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6] text-[#0A0A12] font-medium whitespace-nowrap">+ Tanya Gercep</a>
       </div>
 
       <Section title="Hewan Ternak" items={hewan} color="#2DD4BF" formKey="hewan" cats={HEWAN_CATS} defaultCat="Ayam Broiler" satuanHarga="ekor" satuanStok="ekor" />

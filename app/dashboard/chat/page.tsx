@@ -76,7 +76,7 @@ function ChatContent() {
           {loading && (
             <div className="flex justify-start">
               <div className="bg-[#0F0F1A] border border-white/10 px-4 py-2.5 rounded-2xl rounded-bl-sm text-sm text-[#8B8AA0]">
-                Gercep AI lagi mikir...
+                Gercep lagi mikir...
               </div>
             </div>
           )}

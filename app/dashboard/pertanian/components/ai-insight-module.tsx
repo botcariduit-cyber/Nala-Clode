@@ -26,11 +26,11 @@ export default function AiInsightModule({ data }: { data: AgriDashboardData }) {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-violet-400" />
-            <h3 className="font-semibold">AI Insight Pertanian</h3>
+            <h3 className="font-semibold">Insight Gercep Pertanian</h3>
           </div>
           <Link href="/dashboard/chat?context=pertanian"
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-semibold text-white hover:opacity-90">
-            <MessageCircle size={14} /> ✨ Tanya AI Pertanian
+            <MessageCircle size={14} /> ✨ Tanya Gercep Pertanian
           </Link>
         </div>
         <p className="text-xs text-[#8B8AA0] mb-4">

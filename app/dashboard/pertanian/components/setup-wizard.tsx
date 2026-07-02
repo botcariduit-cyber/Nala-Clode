@@ -94,7 +94,7 @@ export default function SetupWizard({ businessId, userId, onDone }: Props) {
             <div className="text-4xl mb-2">🌾</div>
             <p className="text-sm font-medium">Siap! Lahan <span className="text-emerald-400">{namaLahan}</span> tercatat.</p>
             <p className="text-xs text-[#8B8AA0]">{luas} ha · {tanaman || "—"}</p>
-            <p className="text-xs text-[#8B8AA0]">Selanjutnya kamu bisa catat panen, pupuk, atau tanya AI.</p>
+            <p className="text-xs text-[#8B8AA0]">Selanjutnya kamu bisa catat panen, pupuk, atau tanya Gercep.</p>
             <button type="button" disabled={loading} onClick={finish}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-violet-600 font-semibold text-white disabled:opacity-50">
               {loading ? "Menyimpan..." : "Mulai Pakai Gercep AI"}

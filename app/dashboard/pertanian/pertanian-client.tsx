@@ -91,7 +91,7 @@ export default function PertanianClient({ data, businessName, userId, businessId
           <div className="space-y-4 fade-up">
             <Link href="/dashboard/chat?context=pertanian"
               className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-base font-bold text-white active:scale-[0.98]">
-              <MessageCircle size={20} /> ✨ Tanya AI — Paling Mudah!
+              <MessageCircle size={20} /> ✨ Tanya Gercep — Paling Mudah!
             </Link>
 
             <div className="grid grid-cols-3 gap-2">
@@ -112,8 +112,8 @@ export default function PertanianClient({ data, businessName, userId, businessId
             )}
 
             <div className={`${cardCls} p-4 border-violet-500/15`}>
-              <p className="text-xs font-semibold text-violet-400 mb-2 flex items-center gap-1"><Sparkles size={12} /> Insight AI</p>
-              <p className="text-sm text-[#8B8AA0] leading-relaxed">{insights[0]?.body || "Catat data dulu, AI akan kasih saran."}</p>
+              <p className="text-xs font-semibold text-violet-400 mb-2 flex items-center gap-1"><Sparkles size={12} /> Insight Gercep</p>
+              <p className="text-sm text-[#8B8AA0] leading-relaxed">{insights[0]?.body || "Catat data dulu, Gercep akan kasih saran."}</p>
               <button type="button" onClick={() => setMobileView("ai")} className="text-xs text-violet-400 mt-2">Lihat semua →</button>
             </div>
 
@@ -134,7 +134,7 @@ export default function PertanianClient({ data, businessName, userId, businessId
             ))}
             <Link href="/dashboard/chat?context=pertanian"
               className="block w-full py-3.5 rounded-2xl border border-dashed border-violet-500/30 text-center text-sm text-violet-400">
-              Atau ketik aja ke AI Chat →
+              Atau ketik aja ke Gercep Chat →
             </Link>
           </div>
         )}
@@ -165,7 +165,7 @@ export default function PertanianClient({ data, businessName, userId, businessId
         <div className="flex justify-end mb-4">
           <Link href="/dashboard/chat?context=pertanian"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-semibold text-white">
-            <MessageCircle size={16} /> Tanya AI Pertanian
+            <MessageCircle size={16} /> Tanya Gercep Pertanian
           </Link>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -210,7 +210,7 @@ export default function PertanianClient({ data, businessName, userId, businessId
             { id: "beranda" as const, icon: Home, label: "Beranda" },
             { id: "catat" as const, icon: PenLine, label: "Catat" },
             { id: "data" as const, icon: Database, label: "Data" },
-            { id: "ai" as const, icon: Sparkles, label: "AI" },
+            { id: "ai" as const, icon: Sparkles, label: "Gercep" },
           ]).map(item => (
             <button key={item.id} type="button" onClick={() => setMobileView(item.id)}
               className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium transition-colors ${mobileView === item.id ? "text-violet-400" : "text-[#5A5B7A]"}`}>

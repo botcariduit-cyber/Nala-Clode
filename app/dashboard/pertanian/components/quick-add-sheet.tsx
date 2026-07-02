@@ -196,7 +196,7 @@ export default function QuickAddSheet({ type, onClose, userId, businessId }: Pro
           {loading ? "Menyimpan..." : "Simpan"}
         </button>
 
-        <p className="text-center text-[10px] text-[#5A5B7A] mt-3">Atau pakai ✨ Tanya AI untuk catat lewat chat</p>
+        <p className="text-center text-[10px] text-[#5A5B7A] mt-3">Atau pakai ✨ Tanya Gercep untuk catat lewat chat</p>
       </div>
     </div>
   );

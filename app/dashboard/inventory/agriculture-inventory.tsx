@@ -34,7 +34,7 @@ export default function AgricultureInventory({ products, harvestMeta }: Props) {
         <div className="flex gap-2">
           <Link href="/dashboard/chat?context=pertanian" onClick={e => e.stopPropagation()}
             className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-bold text-white">
-            <MessageCircle size={16} /> Tanya AI
+            <MessageCircle size={16} /> Tanya Gercep
           </Link>
           <span className="flex-1 flex items-center justify-center py-3 rounded-xl border border-white/10 text-sm text-[#8B8AA0]">
             {harvest.length} panen · {saprotan.length} saprotan

@@ -118,18 +118,76 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
         .eq("tahun", tahun)
         .maybeSingle();
 
-      const omzetBulan = monthTx?.filter(t => t.type === "pemasukan").reduce((s, t) => s + Number(t.amount), 0) || 0;
-      const pengeluaranBulan = monthTx?.filter(t => t.type === "pengeluaran").reduce((s, t) => s + Number(t.amount), 0) || 0;
-      const labaBulan = omzetBulan - pengeluaranBulan;
-
-      const omzetBulanLalu = lastMonthTx?.filter(t => t.type === "pemasukan").reduce((s, t) => s + Number(t.amount), 0) || 0;
-      const omzetTahun = yearTx?.filter(t => t.type === "pemasukan").reduce((s, t) => s + Number(t.amount), 0) || 0;
+      const omzetFromTx = monthTx?.filter(t => t.type === "pemasukan").reduce((s, t) => s + Number(t.amount), 0) || 0;
+      let omzetBulan = omzetFromTx;
+      let pengeluaranBulan = monthTx?.filter(t => t.type === "pengeluaran").reduce((s, t) => s + Number(t.amount), 0) || 0;
 
       const pengeluaranByCategory: Record<string, number> = {};
       monthTx?.filter(t => t.type === "pengeluaran").forEach(t => {
         const cat = t.category || "Lainnya";
         pengeluaranByCategory[cat] = (pengeluaranByCategory[cat] || 0) + Number(t.amount);
       });
+
+      // Data modul pertanian
+      if (biz.type === "pertanian") {
+        const { data: agriCosts } = await supabase
+          .from("agri_production_costs")
+          .select("kategori, jumlah")
+          .eq("business_id", biz.id)
+          .gte("tanggal", startOfMonth)
+          .lte("tanggal", periodEnd);
+        agriCosts?.forEach(c => {
+          const amt = Number(c.jumlah);
+          pengeluaranBulan += amt;
+          const cat = c.kategori || "Biaya Pertanian";
+          pengeluaranByCategory[cat] = (pengeluaranByCategory[cat] || 0) + amt;
+        });
+        const { data: agriSpray } = await supabase
+          .from("agri_spraying_records")
+          .select("biaya")
+          .eq("business_id", biz.id)
+          .gte("tanggal", startOfMonth)
+          .lte("tanggal", periodEnd);
+        agriSpray?.forEach(s => {
+          const amt = Number(s.biaya || 0);
+          pengeluaranBulan += amt;
+          pengeluaranByCategory["Penyemprotan"] = (pengeluaranByCategory["Penyemprotan"] || 0) + amt;
+        });
+        const { data: harvestProds } = await supabase
+          .from("products")
+          .select("price, stock")
+          .eq("business_id", biz.id);
+        const nilaiPanen = harvestProds?.reduce((s, p) => s + (Number(p.price) || 0) * Number(p.stock), 0) || 0;
+        if (omzetBulan === 0 && nilaiPanen > 0) omzetBulan = nilaiPanen;
+      }
+
+      // Data modul ternak
+      if (biz.type === "ternak") {
+        const { data: batches } = await supabase.from("farm_batches").select("id").eq("business_id", biz.id);
+        const batchIds = batches?.map(b => b.id) || [];
+        if (batchIds.length > 0) {
+          const { data: farmTx } = await supabase
+            .from("farm_transactions")
+            .select("jenis_transaksi, total")
+            .in("batch_id", batchIds)
+            .gte("tanggal", startOfMonth)
+            .lte("tanggal", periodEnd);
+          farmTx?.forEach(t => {
+            const amt = Number(t.total);
+            if (t.jenis_transaksi === "panen") {
+              omzetBulan += amt;
+            } else {
+              pengeluaranBulan += amt;
+              const cat = t.jenis_transaksi || "Operasional Ternak";
+              pengeluaranByCategory[cat] = (pengeluaranByCategory[cat] || 0) + amt;
+            }
+          });
+        }
+      }
+
+      const labaBulan = omzetBulan - pengeluaranBulan;
+      const omzetBulanLalu = lastMonthTx?.filter(t => t.type === "pemasukan").reduce((s, t) => s + Number(t.amount), 0) || 0;
+      const omzetTahun = yearTx?.filter(t => t.type === "pemasukan").reduce((s, t) => s + Number(t.amount), 0) || 0;
 
       const stokKritis = products?.filter(p => p.stock <= p.min_stock) || [];
       const totalOrderBulan = monthOrders?.length || 0;
@@ -190,22 +248,28 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
 
   if (topProducts.length === 0) {
     const { data: allProducts } = await supabase
-      .from("products").select("id, name, price").in("business_id", bizIds).order("name").limit(5);
-    topProducts = (allProducts || []).map((p, i) => ({
-      id: p.id, name: p.name, sold: 0, revenue: Number(p.price || 0),
-      emoji: PRODUCT_EMOJI[i % PRODUCT_EMOJI.length],
-    }));
+      .from("products").select("id, name, price, stock, business_id").in("business_id", bizIds).order("name").limit(20);
+    topProducts = (allProducts || [])
+      .map((p, i) => ({
+        id: p.id,
+        name: p.name,
+        sold: Number(p.stock) || 0,
+        revenue: Number(p.price || 0) * (Number(p.stock) || 1),
+        emoji: PRODUCT_EMOJI[i % PRODUCT_EMOJI.length],
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
   }
 
   const { data: recentTxRaw } = await supabase
     .from("transactions")
-    .select("id, amount, type, description, category, created_at")
+    .select("id, amount, type, description, category, created_at, business_id")
     .in("business_id", bizIds)
     .eq("scope", "bisnis")
     .order("created_at", { ascending: false })
     .limit(6);
 
-  const recentTransactions: RecentTransaction[] = (recentTxRaw || []).map(tx => {
+  let recentTransactions: RecentTransaction[] = (recentTxRaw || []).map(tx => {
     const created = tx.created_at ? new Date(tx.created_at) : new Date();
     const customer = tx.description?.split(",")[0]?.split(" x")[0] || tx.category || "Pelanggan";
     return {
@@ -216,6 +280,29 @@ export default async function DashboardOwnerPage({ searchParams }: { searchParam
       time: `${String(created.getHours()).padStart(2, "0")}:${String(created.getMinutes()).padStart(2, "0")}`,
     };
   });
+
+  if (recentTransactions.length < 6) {
+    const { data: farmBatches } = await supabase.from("farm_batches").select("id, business_id").in("business_id", bizIds);
+    const batchIds = farmBatches?.map(b => b.id) || [];
+    if (batchIds.length > 0) {
+      const { data: farmRecent } = await supabase
+        .from("farm_transactions")
+        .select("id, jenis_transaksi, total, tanggal, created_at")
+        .in("batch_id", batchIds)
+        .order("created_at", { ascending: false })
+        .limit(6 - recentTransactions.length);
+      farmRecent?.forEach(ft => {
+        const created = ft.created_at ? new Date(ft.created_at) : new Date(ft.tanggal);
+        recentTransactions.push({
+          id: ft.id,
+          customer: ft.jenis_transaksi || "Ternak",
+          status: ft.jenis_transaksi === "panen" ? "Selesai" : "Diproses",
+          amount: Number(ft.total),
+          time: `${String(created.getHours()).padStart(2, "0")}:${String(created.getMinutes()).padStart(2, "0")}`,
+        });
+      });
+    }
+  }
 
   return (
     <DashboardOwnerClient

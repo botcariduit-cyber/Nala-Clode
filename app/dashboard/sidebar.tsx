@@ -29,14 +29,14 @@ const fnb_modules = [
   { name: "Karyawan", href: "/dashboard/fnb/karyawan", icon: Users },
 ];
 
-const comingSoonModules = [
-  { name: "Smart Profit Calculator", icon: Calculator },
-  { name: "CRM Pelanggan", icon: Users },
-  { name: "AI Marketing", icon: Megaphone },
-  { name: "AI Riset Bisnis", icon: BarChart3 },
-  { name: "Barcode QR Analyzer", icon: QrCode },
-  { name: "Pajak NPWP Center", icon: FileText },
-  { name: "Multi Platform", icon: Smartphone },
+const extraModules = [
+  { name: "Smart Profit Calculator", href: "/dashboard/chat", icon: Calculator, label: "MODUL LANJUTAN" },
+  { name: "CRM Pelanggan", href: "/dashboard/chat", icon: Users },
+  { name: "Gercep Marketing", href: "/dashboard/chat", icon: Megaphone },
+  { name: "Riset Bisnis", href: "/dashboard/chat", icon: BarChart3 },
+  { name: "Barcode QR Analyzer", href: "/dashboard/chat", icon: QrCode },
+  { name: "Pajak NPWP Center", href: "/dashboard/keuangan-bisnis", icon: FileText },
+  { name: "Multi Platform", href: "/dashboard/inventory", icon: Smartphone },
 ];
 
 type Business = { id: string; name: string; type: string | null };
@@ -51,12 +51,14 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
   embedded?: boolean;
 }) {
   const pathname = usePathname();
+  const types = new Set(businesses.map(b => b.type).filter(Boolean));
 
   const allModules = [
     ...baseModules,
-    ...(activeBusiness?.type === "ternak" ? ternak_modules : []),
-    ...(activeBusiness?.type === "pertanian" ? pertanian_modules : []),
-    ...(activeBusiness?.type === "kuliner" ? fnb_modules : []),
+    ...(types.has("ternak") ? ternak_modules : []),
+    ...(types.has("pertanian") ? pertanian_modules : []),
+    ...(types.has("kuliner") ? fnb_modules : []),
+    ...extraModules,
   ];
 
   return (
@@ -75,7 +77,6 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
       <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full opacity-10 blur-[60px]"
         style={{ background: "radial-gradient(circle, #2DD4BF, transparent)" }} />
 
-      {/* Logo */}
       <div className="flex h-[60px] flex-shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-4">
         <div className="gercep-gradient-btn flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold">G</div>
         {expanded && (
@@ -85,13 +86,12 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
         )}
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3" style={{ scrollbarWidth: "none" }}>
         {allModules.map((m) => {
-          const isActive = pathname === m.href;
+          const isActive = pathname === m.href || (m.href !== "/dashboard/chat" && pathname.startsWith(m.href + "/"));
           const showLabel = expanded && "label" in m && (m as { label?: string }).label;
           return (
-            <div key={m.href}>
+            <div key={m.href + m.name}>
               {showLabel && (
                 <p className="mb-1.5 mt-3 px-2 text-[9px] font-semibold tracking-[0.08em] text-[#3A3B52] whitespace-nowrap">
                   {(m as { label?: string }).label}
@@ -115,26 +115,8 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
             </div>
           );
         })}
-
-        {comingSoonModules.length > 0 && expanded && (
-          <p className="mb-1.5 mt-4 px-2 text-[9px] font-semibold tracking-[0.08em] text-[#3A3B52] whitespace-nowrap">SEGERA HADIR</p>
-        )}
-        {comingSoonModules.map(m => (
-          <div
-            key={m.name}
-            title={m.name}
-            className={[
-              "mb-0.5 flex cursor-not-allowed items-center gap-2.5 rounded-lg text-[rgba(90,91,122,.4)]",
-              expanded ? "px-2.5 py-[7px]" : "justify-center p-[7px]",
-            ].join(" ")}
-          >
-            <m.icon size={15} className="flex-shrink-0" />
-            {expanded && <span className="ml-2.5 whitespace-nowrap text-xs">{m.name}</span>}
-          </div>
-        ))}
       </nav>
 
-      {/* Upgrade */}
       {expanded && (
         <div className="mx-2 mb-2 rounded-xl border border-[#2DD4BF]/15 bg-gradient-to-br from-[#2DD4BF]/[0.08] to-[#8B5CF6]/[0.06] p-3">
           <p className="mb-0.5 text-xs font-semibold text-[#2DD4BF]">🚀 Upgrade ke Pro</p>
@@ -147,7 +129,6 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
 
       {expanded && <BusinessSwitcher businesses={businesses} activeBusiness={activeBusiness} />}
 
-      {/* Profile */}
       <div className="flex-shrink-0 border-t border-white/[0.06] px-2 py-3">
         {expanded ? (
           <div className="flex items-center gap-2 px-2">
@@ -156,13 +137,13 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold text-[#F0EFF8]">{userName || "Owner"}</p>
-              <p className="text-[10px] text-[#5A5B7A]">Owner</p>
+              <p className="text-[10px] text-[#5A5B7A]">{businesses.length} bisnis</p>
             </div>
-            <a href="/dashboard/onboarding" className="ml-auto text-[10px] text-[#5A5B7A] transition-colors hover:text-[#EC4899]">Keluar</a>
+            <a href="/login" className="ml-auto text-[10px] text-[#5A5B7A] transition-colors hover:text-[#EC4899]">Keluar</a>
           </div>
         ) : (
           <div className="flex justify-center">
-            <a href="/dashboard/onboarding" title="Keluar" className="text-xs text-[#5A5B7A] transition-colors hover:text-[#EC4899]">↩</a>
+            <a href="/login" title="Keluar" className="text-xs text-[#5A5B7A] transition-colors hover:text-[#EC4899]">↩</a>
           </div>
         )}
       </div>

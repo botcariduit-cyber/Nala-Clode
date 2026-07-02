@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -26,9 +27,11 @@ type Business = {
 
 const TYPE_COLOR: Record<string, string> = {
   kuliner: "#2DD4BF", ternak: "#8B5CF6", homeindustry: "#F59E0B", retail: "#EC4899", pertanian: "#22C55E",
+  jasa: "#EC4899", wholesale: "#6366F1", olshop: "#F43F5E", kesehatan: "#10B981", bengkel: "#EF4444",
 };
 const TYPE_LABEL: Record<string, string> = {
-  kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home Industri", retail: "Retail", pertanian: "Pertanian",
+  kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home Industri", retail: "Retail",
+  pertanian: "Pertanian", jasa: "Jasa", wholesale: "Grosir", olshop: "Online Shop", kesehatan: "Kesehatan", bengkel: "Bengkel",
 };
 const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const STATUS_STYLE: Record<string, string> = {
@@ -103,6 +106,8 @@ export default function DashboardOwnerClient({
     ? Math.round(filteredBusinesses.reduce((s, b) => s + b.growthPct, 0) / businesses.length) : 0;
   const ranked = [...filteredBusinesses].sort((a, b) => b.labaBulan - a.labaBulan);
   const topGrowth = [...filteredBusinesses].sort((a, b) => b.growthPct - a.growthPct)[0];
+  const topProfit = ranked[0];
+  const topLoss = [...filteredBusinesses].sort((a, b) => a.labaBulan - b.labaBulan)[0];
 
   const alerts = businesses.filter(b => b.stokKritis.length > 0).map(b => ({
     id: "stok-" + b.id,
@@ -284,6 +289,35 @@ export default function DashboardOwnerClient({
           ))}
         </div>
 
+        {/* Ranking semua bisnis — langsung terlihat */}
+        {businesses.length > 0 && (
+          <div className="dashboard-card p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
+              <h2 className="dash-card-title">Performa {businesses.length} Bisnis Kamu</h2>
+              <span className="text-xs text-slate-500">Data dari semua modul · keuangan · inventory · pertanian · ternak</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {ranked.map((b, i) => (
+                <div key={b.id} className="rounded-xl border border-white/[0.06] bg-[#0b0e14] p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/[0.06] text-[10px] font-bold text-slate-400">{i + 1}</span>
+                    <span className="h-2 w-2 rounded-full" style={{ background: TYPE_COLOR[b.type] || "#8b5cf6" }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-white">{b.name}</p>
+                      <p className="text-[10px] text-slate-500">{TYPE_LABEL[b.type] || b.type}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><p className="text-slate-500">Omzet</p><p className="font-mono font-semibold text-violet-300">{fmtRp(b.omzetBulan)}</p></div>
+                    <div><p className="text-slate-500">Laba/Rugi</p><p className={`font-mono font-semibold ${b.labaBulan >= 0 ? "text-emerald-400" : "text-red-400"}`}>{b.labaBulan >= 0 ? "+" : ""}{fmtRp(b.labaBulan)}</p></div>
+                  </div>
+                  {b.stokKritis.length > 0 && <p className="mt-2 text-[10px] text-amber-400">⚠ {b.stokKritis.length} stok kritis</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Chart + Alerts */}
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3 xl:gap-6">
           <div className="dashboard-card flex flex-col p-5 xl:col-span-2">
@@ -446,17 +480,29 @@ export default function DashboardOwnerClient({
             </div>
           </div>
 
-          {/* Insight AI */}
+          {/* Insight Gercep */}
           <div className="flex min-h-[300px] flex-col overflow-hidden rounded-2xl border border-violet-500/25 p-5"
             style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(79,70,229,0.08))" }}>
             <div className="mb-3 flex items-start justify-between">
               <div>
-                <span className="inline-flex rounded-lg bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">✦ Insight AI</span>
+                <span className="inline-flex rounded-lg bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">✦ Insight Gercep</span>
                 <span className="ml-2 rounded-md bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">Baru</span>
               </div>
-              <span className="text-2xl leading-none">🤖</span>
+              <span className="text-2xl leading-none">🌾</span>
             </div>
             <div className="flex-1 space-y-2 text-[12px] leading-relaxed text-slate-400">
+              {topProfit && (
+                <div className="flex gap-2">
+                  <span className="flex-shrink-0 text-emerald-400">✓</span>
+                  <span>Paling untung: <strong className="text-slate-200">{topProfit.name}</strong> ({fmtRp(topProfit.labaBulan)}).</span>
+                </div>
+              )}
+              {topLoss && topLoss.labaBulan < 0 && (
+                <div className="flex gap-2">
+                  <span className="flex-shrink-0 text-red-400">↓</span>
+                  <span>Perlu perhatian: <strong className="text-slate-200">{topLoss.name}</strong> rugi {fmtRp(Math.abs(topLoss.labaBulan))}.</span>
+                </div>
+              )}
               {topGrowth && (
                 <div className="flex gap-2">
                   <span className="flex-shrink-0 text-emerald-400">✓</span>
@@ -471,11 +517,15 @@ export default function DashboardOwnerClient({
               )}
               <div className="flex gap-2">
                 <span className="flex-shrink-0 text-emerald-400">✓</span>
-                <span>{businesses.length} bisnis aktif · {totalOrder} order.</span>
+                <span>{businesses.length} bisnis aktif · {totalOrder} order · omzet {fmtRp(totalOmzet)}.</span>
               </div>
             </div>
+            <Link href="/dashboard/chat"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 py-2.5 text-sm font-semibold text-violet-300 hover:bg-violet-500/20">
+              ✨ Tanya Gercep
+            </Link>
             <button type="button" onClick={() => setShowAdvanced(true)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-sm font-semibold text-white hover:opacity-90">
               Lihat Analisis Lengkap <ChevronRight size={14} />
             </button>
           </div>

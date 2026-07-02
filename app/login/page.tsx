@@ -3,6 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL || "demo@gercep.id";
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD || "Gercep123!";
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -11,18 +14,29 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doLogin = async (loginEmail: string, loginPassword: string) => {
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
     setLoading(false);
     if (error) {
       setError("Email atau password salah");
-      return;
+      return false;
     }
-    router.push("/dashboard");
+    router.push("/dashboard/owner");
     router.refresh();
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await doLogin(email, password);
+  };
+
+  const handleDemoLogin = async () => {
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    await doLogin(DEMO_EMAIL, DEMO_PASSWORD);
   };
 
   return (
@@ -31,7 +45,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <a href="/" className="font-semibold text-lg">Gercep<span className="holo-text">AI</span></a>
           <h1 className="text-2xl font-semibold mt-6 mb-2">Selamat datang lagi</h1>
-          <p className="text-sm text-[#8B8AA0]">Masuk buat lanjut kelola bisnis kamu.</p>
+          <p className="text-sm text-[#8B8AA0]">Masuk buat kelola semua bisnis kamu.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -50,6 +64,14 @@ export default function LoginPage() {
             {loading ? "Masuk..." : "Masuk"}
           </button>
         </form>
+
+        <button type="button" onClick={handleDemoLogin} disabled={loading}
+          className="w-full mt-3 py-3.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 font-semibold text-sm hover:bg-violet-500/20 disabled:opacity-50">
+          {loading ? "Masuk..." : "🚀 Masuk Akun Demo"}
+        </button>
+        <p className="text-center text-[10px] text-[#5A5B7A] mt-2">
+          Demo: {DEMO_EMAIL} · {DEMO_PASSWORD}
+        </p>
 
         <p className="text-center text-sm text-[#8B8AA0] mt-6">Belum punya akun? <a href="/signup" className="text-[#2DD4BF]">Daftar gratis</a></p>
       </div>

@@ -30,7 +30,7 @@ export const AGRI_TABS = [
   { id: "lahan", label: "Lahan", icon: "MapPin" },
   { id: "semprot", label: "Penyemprotan", icon: "Droplets" },
   { id: "biaya", label: "Biaya Produksi", icon: "Calculator" },
-  { id: "insight", label: "AI Insight", icon: "Sparkles" },
+  { id: "insight", label: "Insight Gercep", icon: "Sparkles" },
 ] as const;
 
 export type AgriTabId = (typeof AGRI_TABS)[number]["id"];

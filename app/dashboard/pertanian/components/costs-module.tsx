@@ -60,7 +60,7 @@ export default function CostsModule({ costs, userId, businessId, dashboardData, 
         ))}
       </div>
 
-      <p className="text-xs text-[#8B8AA0]">Nilai panen: {fmtRp(panenValue)} · AI menghitung HPP, margin, dan ROI dari biaya + saprotan + penyemprotan.</p>
+      <p className="text-xs text-[#8B8AA0]">Nilai panen: {fmtRp(panenValue)} · Gercep menghitung HPP, margin, dan ROI dari biaya + saprotan + penyemprotan.</p>
 
       <div className="flex justify-end">
         <button type="button" onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-semibold text-white">

@@ -98,7 +98,7 @@ export default function SaprotanModule({ products, saprotanMeta, userId, busines
     <div className="space-y-4">
       {!compact && alerts.length > 0 && (
         <div className={`${cardCls} p-4 border-amber-500/20`}>
-          <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1.5"><AlertTriangle size={14} /> AI Alert Saprotan</p>
+          <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1.5"><AlertTriangle size={14} /> Alert Gercep Saprotan</p>
           <ul className="space-y-1">{alerts.map((a, i) => <li key={i} className="text-xs text-[#8B8AA0]">• {a.msg}</li>)}</ul>
         </div>
       )}
