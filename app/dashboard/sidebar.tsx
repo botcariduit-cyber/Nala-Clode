@@ -73,11 +73,11 @@ export default function Sidebar({ expanded, setExpanded, businesses, activeBusin
       <nav className="flex-1 overflow-y-auto py-3 px-2" style={{ scrollbarWidth: "none" }}>
         {allModules.map((m, i) => {
           const isActive = pathname === m.href;
-          const showLabel = expanded && "label" in m && m.label;
+          const showLabel = expanded && "label" in m && (m as { label?: string }).label;
           return (
             <div key={m.href}>
               {showLabel && (
-                <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{m.label}</p>
+                <p className="text-[9px] font-semibold px-2 mt-3 mb-1.5 whitespace-nowrap" style={{ color: "#3A3B52", letterSpacing: ".08em" }}>{(m as { label?: string }).label}</p>
               )}
               <a
                 href={m.href}
