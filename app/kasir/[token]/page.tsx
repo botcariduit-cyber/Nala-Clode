@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import KasirPublicClient from "./kasir-public-client";
+import { normalizeMenus } from "@/app/dashboard/fnb/lib/calc";
 
 export default async function KasirPublicPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -72,7 +73,7 @@ export default async function KasirPublicPage({ params }: { params: Promise<{ to
     <KasirPublicClient
       employee={{ id: employee.id, nama: employee.nama, jabatan: employee.jabatan, kasir_token: token, webauthn_credential_id: employee.webauthn_credential_id }}
       business={business}
-      menus={menus || []}
+      menus={normalizeMenus(menus || [])}
       initialStats={{ omzet, laba, totalOrders, foodCost }}
       today={today}
     />

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import FnbMenuClient from "./menu-client";
+import { normalizeMenus } from "../lib/calc";
 
 export default async function FnbMenuPage() {
   const supabase = await createClient();
@@ -41,7 +42,7 @@ export default async function FnbMenuPage() {
         {business?.name && <span className="text-xs text-[#8B8AA0] bg-white/5 px-3 py-1 rounded-full">{business.name}</span>}
       </div>
       <p className="text-[#8B8AA0] mb-6">Kelola menu, resep bahan, dan lihat untung/rugi otomatis.</p>
-      <FnbMenuClient menus={menus || []} products={products || []} userId={user!.id} businessId={business.id} />
+      <FnbMenuClient menus={normalizeMenus(menus || [])} products={products || []} userId={user!.id} businessId={business.id} />
     </div>
   );
 }

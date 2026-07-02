@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import KasirClient from "./kasir-client";
+import { normalizeMenus } from "../lib/calc";
 
 export default async function KasirPage() {
   const supabase = await createClient();
@@ -52,7 +53,7 @@ export default async function KasirPage() {
       </div>
       <p className="text-[#8B8AA0] mb-6">Catat transaksi, stok berkurang otomatis.</p>
       <KasirClient
-        menus={menus || []}
+        menus={normalizeMenus(menus || [])}
         employees={employees || []}
         userId={user!.id}
         businessId={business.id}

@@ -4,24 +4,22 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, Minus, Search, Check, LogIn, LogOut, User, ShoppingCart, Trash2 } from "lucide-react";
 
-type Product = { id: string; name: string; cost: number | null; stock: number };
-type MenuRecipe = { id: string; quantity: number; unit: string; products: Product };
-type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; menu_recipes: MenuRecipe[] };
-type Checkin = { id: string; tanggal: string; jam_masuk: string; jam_keluar: string | null };
-type Employee = { id: string; nama: string; jabatan: string | null; checkins: Checkin[] };
-type CartItem = { menu: Menu; qty: number };
-
-const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#2DD4BF", "Minuman": "#38BDF8", "Snack": "#F59E0B", "Paket": "#8B5CF6", "Lainnya": "#8B8AA0" };
-const KATEGORI_ICON: Record<string, string> = { "Makanan": "ti-bowl-chopsticks", "Minuman": "ti-glass", "Snack": "ti-cookie", "Paket": "ti-package", "Lainnya": "ti-dots" };
-
 import { calcHpp } from "../lib/calc";
+import type { FnbMenu } from "../lib/calc";
 import { validateCartStock, deductStockForSale } from "../lib/process-order";
 import FnbHubNav from "../components/fnb-hub-nav";
 import FnbKpiRow from "../components/fnb-kpi-row";
 import FnbStockAlerts from "../components/fnb-stock-alerts";
 
+type Checkin = { id: string; tanggal: string; jam_masuk: string; jam_keluar: string | null };
+type Employee = { id: string; nama: string; jabatan: string | null; checkins: Checkin[] };
+type CartItem = { menu: FnbMenu; qty: number };
+
+const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#2DD4BF", "Minuman": "#38BDF8", "Snack": "#F59E0B", "Paket": "#8B5CF6", "Lainnya": "#8B8AA0" };
+const KATEGORI_ICON: Record<string, string> = { "Makanan": "ti-bowl-chopsticks", "Minuman": "ti-glass", "Snack": "ti-cookie", "Paket": "ti-package", "Lainnya": "ti-dots" };
+
 export default function KasirClient({ menus, employees, userId, businessId, omzetHariIni, labaHariIni, totalOrder, today }: {
-  menus: Menu[]; employees: Employee[]; userId: string; businessId: string;
+  menus: FnbMenu[]; employees: Employee[]; userId: string; businessId: string;
   omzetHariIni: number; labaHariIni: number; totalOrder: number; today: string;
 }) {
   const router = useRouter();
@@ -53,7 +51,7 @@ export default function KasirClient({ menus, employees, userId, businessId, omze
 
   const categories = ["Semua", ...Array.from(new Set(menus.map(m => m.kategori || "Lainnya")))];
 
-  const addToCart = (menu: Menu) => {
+  const addToCart = (menu: FnbMenu) => {
     setCart(prev => {
       const existing = prev.find(c => c.menu.id === menu.id);
       if (existing) return prev.map(c => c.menu.id === menu.id ? { ...c, qty: c.qty + 1 } : c);

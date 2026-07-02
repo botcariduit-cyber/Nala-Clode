@@ -2,16 +2,17 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; foto_url: string | null; menu_recipes: { id: string; quantity: number; unit: string; products: { id: string; name: string; cost: number | null; stock: number } }[] };
+import { calcHpp } from "@/app/dashboard/fnb/lib/calc";
+import type { FnbMenu } from "@/app/dashboard/fnb/lib/calc";
+import { validateCartStock, deductStockForSale } from "@/app/dashboard/fnb/lib/process-order";
+
+type Menu = FnbMenu;
 type Employee = { id: string; nama: string; jabatan: string | null; kasir_token: string; webauthn_credential_id: string | null };
 type Business = { id: string; name: string; type: string };
 type Stats = { omzet: number; laba: number; totalOrders: number; foodCost: number };
 
 const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#2DD4BF", "Minuman": "#38BDF8", "Snack": "#F59E0B", "Paket": "#8B5CF6", "Lainnya": "#8B8AA0" };
 const KATEGORI_ICON: Record<string, string> = { "Makanan": "ti-bowl-chopsticks", "Minuman": "ti-glass", "Snack": "ti-cookie", "Paket": "ti-package", "Lainnya": "ti-dots" };
-
-import { calcHpp } from "@/app/dashboard/fnb/lib/calc";
-import { validateCartStock, deductStockForSale } from "@/app/dashboard/fnb/lib/process-order";
 
 function buf2b64(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));

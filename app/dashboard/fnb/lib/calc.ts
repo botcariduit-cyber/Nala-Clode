@@ -13,14 +13,56 @@ export type FnbMenu = {
 
 export type CartLine = { menu: FnbMenu; qty: number };
 
+export function unwrapProduct(products: FnbProduct | FnbProduct[] | null | undefined): FnbProduct | null {
+  if (!products) return null;
+  return Array.isArray(products) ? products[0] ?? null : products;
+}
+
+export function normalizeMenu(menu: Record<string, unknown> & { menu_recipes?: Array<Record<string, unknown> & { products?: FnbProduct | FnbProduct[] | null }> | null }): FnbMenu {
+  const recipes = (menu.menu_recipes || []).map(r => {
+    const p = unwrapProduct(r.products);
+    return { id: String(r.id), quantity: Number(r.quantity), unit: String(r.unit || ""), products: p || { id: "", name: "?", cost: null, stock: 0, category: null } };
+  }).filter(r => r.products.id);
+
+  return {
+    id: String(menu.id),
+    nama: String(menu.nama),
+    kategori: menu.kategori as string | null | undefined,
+    harga_jual: Number(menu.harga_jual),
+    yield_quantity: Number(menu.yield_quantity) || 1,
+    status: menu.status as string | undefined,
+    foto_url: menu.foto_url as string | null | undefined,
+    menu_recipes: recipes,
+  };
+}
+
+export function normalizeMenus(menus: Parameters<typeof normalizeMenu>[0][]): FnbMenu[] {
+  return (menus || []).map(m => normalizeMenu(m));
+}
+
+export function recipeLineCost(r: FnbMenuRecipe): number {
+  const p = unwrapProduct(r.products);
+  return (Number(p?.cost) || 0) * Number(r.quantity);
+}
+
 export function calcHpp(menu: FnbMenu): number {
-  const total = menu.menu_recipes.reduce((s, r) => s + (r.products.cost || 0) * r.quantity, 0);
+  const recipes = menu.menu_recipes || [];
+  if (!recipes.length) return 0;
+  const total = recipes.reduce((s, r) => s + recipeLineCost(r), 0);
   return total / (menu.yield_quantity || 1);
 }
 
+export function hppStatus(menu: FnbMenu): "no_recipe" | "no_cost" | "ok" {
+  const recipes = menu.menu_recipes || [];
+  if (!recipes.length) return "no_recipe";
+  const hasCost = recipes.some(r => (unwrapProduct(r.products)?.cost || 0) > 0);
+  return hasCost ? "ok" : "no_cost";
+}
+
 export function calcMargin(menu: FnbMenu) {
+  const status = hppStatus(menu);
+  if (status !== "ok" || menu.harga_jual <= 0) return null;
   const hpp = calcHpp(menu);
-  if (hpp <= 0 || menu.harga_jual <= 0) return null;
   const laba = menu.harga_jual - hpp;
   return { hpp, laba, marginPct: Math.round((laba / menu.harga_jual) * 100), isLoss: laba < 0 };
 }
@@ -36,10 +78,11 @@ export function getStockShortages(cart: CartLine[]) {
   for (const item of cart) {
     if (!item.menu.menu_recipes.length) continue;
     for (const r of item.menu.menu_recipes) {
+      const p = unwrapProduct(r.products);
+      if (!p) continue;
       const needed = (r.quantity / (item.menu.yield_quantity || 1)) * item.qty;
-      const id = r.products.id;
-      if (!map[id]) map[id] = { name: r.products.name, needed: 0, stock: r.products.stock };
-      map[id].needed += needed;
+      if (!map[p.id]) map[p.id] = { name: p.name, needed: 0, stock: p.stock };
+      map[p.id].needed += needed;
     }
   }
   return Object.values(map).filter(x => x.stock < x.needed);

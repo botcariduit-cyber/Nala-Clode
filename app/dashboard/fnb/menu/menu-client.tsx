@@ -4,22 +4,20 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, AlertTriangle, Upload, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
 
-type Product = { id: string; name: string; cost: number | null; stock: number; min_stock?: number; category: string | null };
-type MenuRecipe = { id: string; quantity: number; unit: string; products: Product };
-type Menu = { id: string; nama: string; kategori: string | null; harga_jual: number; yield_quantity: number; status: string; foto_url: string | null; menu_recipes: MenuRecipe[] };
+import { calcHpp, calcMargin, fmtRp, hppStatus, recipeLineCost, unwrapProduct } from "../lib/calc";
+import type { FnbMenu } from "../lib/calc";
+import FnbHubNav from "../components/fnb-hub-nav";
+import FnbKpiRow from "../components/fnb-kpi-row";
+import FnbStockAlerts from "../components/fnb-stock-alerts";
 
+type Product = { id: string; name: string; cost: number | null; stock: number; min_stock?: number; category: string | null };
 const KATEGORI_MENU = ["Makanan", "Minuman", "Snack", "Paket", "Lainnya"];
 const KATEGORI_COLOR: Record<string, string> = { "Makanan": "#1D9E75", "Minuman": "#185FA5", "Snack": "#BA7517", "Paket": "#534AB7", "Lainnya": "#888780" };
 const KATEGORI_BG: Record<string, string> = { "Makanan": "#E1F5EE", "Minuman": "#E6F1FB", "Snack": "#FAEEDA", "Paket": "#EEEDFE", "Lainnya": "#F1EFE8" };
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0A0A12] border border-white/10 text-[#F2F1F8] placeholder:text-[#8B8AA0] focus:outline-none focus:border-[#2DD4BF]/50 text-sm";
 
-import { calcHpp, calcMargin, fmtRp } from "../lib/calc";
-import FnbHubNav from "../components/fnb-hub-nav";
-import FnbKpiRow from "../components/fnb-kpi-row";
-import FnbStockAlerts from "../components/fnb-stock-alerts";
-
 type FormMenuProps = {
-  editMenu: Menu | null;
+  editMenu: FnbMenu | null;
   fNama: string; setFNama: (v: string) => void;
   fKategori: string; setFKategori: (v: string) => void;
   fHarga: string; setFHarga: (v: string) => void;
@@ -165,12 +163,12 @@ function FormResep({ products, fProductId, setFProductId, fQty, setFQty, fUnit, 
   );
 }
 
-export default function FnbMenuClient({ menus, products, userId, businessId }: { menus: Menu[]; products: Product[]; userId: string; businessId: string }) {
+export default function FnbMenuClient({ menus, products, userId, businessId }: { menus: FnbMenu[]; products: Product[]; userId: string; businessId: string }) {
   const router = useRouter();
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState("Semua");
   const [showMenuForm, setShowMenuForm] = useState(false);
-  const [editMenu, setEditMenu] = useState<Menu | null>(null);
+  const [editMenu, setEditMenu] = useState<FnbMenu | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showResepForm, setShowResepForm] = useState<string | null>(null);
   const [menuLoading, setMenuLoading] = useState(false);
@@ -236,9 +234,9 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
     router.refresh();
   };
 
-  const startEdit = (m: Menu) => {
+  const startEdit = (m: FnbMenu) => {
     setEditMenu(m); setFNama(m.nama); setFKategori(m.kategori || "Makanan");
-    setFHarga(m.harga_jual.toString()); setFStatus(m.status); setFYield((m.yield_quantity || 1).toString()); setFFotoUrl(m.foto_url || ""); setShowMenuForm(true);
+    setFHarga(m.harga_jual.toString()); setFStatus(m.status || "aktif"); setFYield((m.yield_quantity || 1).toString()); setFFotoUrl(m.foto_url || ""); setShowMenuForm(true);
   };
 
   const totalMenu = menus.length;
@@ -297,7 +295,8 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
               const kat = m.kategori || "Lainnya";
               const katColor = KATEGORI_COLOR[kat] || "#888780";
               const katBg = KATEGORI_BG[kat] || "#F1EFE8";
-              const bahanHabis = m.menu_recipes.filter(r => r.products.stock <= 0);
+              const status = hppStatus(m);
+              const bahanHabis = m.menu_recipes.filter(r => (unwrapProduct(r.products)?.stock ?? 0) <= 0);
               return (
                 <div key={m.id}>
                   <div className="flex items-center px-4 py-3 gap-3 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : m.id)}>
@@ -308,19 +307,27 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
                         <span className={"text-[10px] px-2 py-0.5 rounded-full " + (m.status === "aktif" ? "bg-[#2DD4BF]/15 text-[#2DD4BF]" : "bg-white/5 text-[#8B8AA0]")}>{m.status}</span>
                         {bahanHabis.length > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EC4899]/15 text-[#EC4899]"><AlertTriangle size={9} className="inline mr-1" />bahan habis</span>}
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-[#8B8AA0] flex-wrap">
-                        <span className="text-sm font-mono font-semibold text-[#F2F1F8]">{fmtRp(m.harga_jual)}</span>
-                        {hpp > 0 && (
-                          <span className="rounded-lg bg-violet-500/10 px-2 py-0.5 text-violet-300">
-                            Modal {fmtRp(Math.round(hpp))}
-                          </span>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        <span className="text-sm font-mono font-semibold text-white">{fmtRp(m.harga_jual)}</span>
+                        <span className="text-[#5A5B7A]">jual</span>
+                      </div>
+                      {/* HPP card — selalu terlihat */}
+                      <div className="mt-2 flex items-center justify-between rounded-xl border border-violet-500/25 bg-gradient-to-r from-violet-600/10 to-indigo-600/5 px-3 py-2">
+                        <span className="text-[11px] font-semibold text-violet-300">HPP / Modal</span>
+                        {status === "ok" ? (
+                          <div className="text-right">
+                            <span className="font-mono text-sm font-bold text-violet-200">{fmtRp(Math.round(hpp))}</span>
+                            {margin !== null && (
+                              <span className={"ml-2 text-[10px] font-medium " + (isRugi ? "text-red-300" : "text-emerald-300")}>
+                                {isRugi ? "Rugi" : "Untung"} {Math.abs(margin)}%
+                              </span>
+                            )}
+                          </div>
+                        ) : status === "no_cost" ? (
+                          <span className="text-[10px] text-amber-300">Isi harga beli bahan di Stok</span>
+                        ) : (
+                          <span className="text-[10px] text-amber-300">Tap → tambah resep bahan</span>
                         )}
-                        {margin !== null && (
-                          <span className={"rounded-lg px-2 py-0.5 font-medium " + (isRugi ? "bg-red-500/15 text-red-300" : "bg-emerald-500/15 text-emerald-300")}>
-                            {isRugi ? "Rugi" : "Untung"} {Math.abs(margin)}%
-                          </span>
-                        )}
-                        {hpp === 0 && <span className="text-amber-400">+ tambah resep dulu</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -348,15 +355,16 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
                       ) : (
                         <div className="flex flex-col">
                           {m.menu_recipes.map(r => {
-                            const biaya = (r.products.cost || 0) * r.quantity;
-                            const isHabis = r.products.stock <= 0;
+                            const p = unwrapProduct(r.products);
+                            const biaya = recipeLineCost(r);
+                            const isHabis = (p?.stock ?? 0) <= 0;
                             return (
                               <div key={r.id} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
                                 <div className="flex items-center gap-2">
                                   <div className={"w-1.5 h-1.5 rounded-full flex-shrink-0 " + (isHabis ? "bg-[#EC4899]" : "bg-[#2DD4BF]")}></div>
                                   <div>
-                                    <p className={"text-xs " + (isHabis ? "text-[#EC4899]" : "text-[#F2F1F8]")}>{r.products.name} {isHabis && "(habis)"}</p>
-                                    <p className="text-[10px] text-[#8B8AA0]">{r.quantity} {r.unit} · stok {r.products.stock}</p>
+                                    <p className={"text-xs " + (isHabis ? "text-[#EC4899]" : "text-[#F2F1F8]")}>{p?.name || "?"} {isHabis && "(habis)"}</p>
+                                    <p className="text-[10px] text-[#8B8AA0]">{r.quantity} {r.unit} · stok {p?.stock ?? 0} · beli {p?.cost ? fmtRp(p.cost) : "belum diset"}/satuan</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -400,7 +408,7 @@ export default function FnbMenuClient({ menus, products, userId, businessId }: {
                           {bahanHabis.length > 0 && (
                             <div className="mt-2 flex items-center gap-2 bg-[#F59E0B]/10 border border-[#F59E0B]/20 rounded-lg px-3 py-2">
                               <AlertTriangle size={13} className="text-[#F59E0B] flex-shrink-0" />
-                              <p className="text-[11px] text-[#F59E0B]">Bahan habis: {bahanHabis.map(b => b.products.name).join(", ")}. Segera restock.</p>
+                              <p className="text-[11px] text-[#F59E0B]">Bahan habis: {bahanHabis.map(b => unwrapProduct(b.products)?.name).filter(Boolean).join(", ")}. Segera restock.</p>
                             </div>
                           )}
                         </div>
