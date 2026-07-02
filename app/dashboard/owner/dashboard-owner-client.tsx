@@ -1,9 +1,16 @@
 "use client";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { Search, ChevronDown, ChevronRight, X, Pencil, AlertTriangle, TrendingUp, Printer, Plus, Calendar, FileSpreadsheet, FileText } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  Search, X, AlertTriangle, Calendar, ChevronDown, Bell,
+  TrendingUp, TrendingDown, ShoppingBag, Receipt, DollarSign,
+  ArrowUpRight, ArrowDownRight, ChevronRight,
+} from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
+} from "recharts";
+import type { TopProduct, RecentTransaction } from "./page";
 
 type Business = {
   id: string; name: string; type: string;
@@ -15,42 +22,46 @@ type Business = {
   dailyMap: Record<string, number>;
 };
 
-const TYPE_COLOR: Record<string, string> = { kuliner: "#2DD4BF", ternak: "#8B5CF6", homeindustry: "#F59E0B", retail: "#EC4899" };
-const TYPE_LABEL: Record<string, string> = { kuliner: "F&B / Kuliner", ternak: "Peternakan", homeindustry: "Home Industri", retail: "Retail" };
-const BULAN = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+const TYPE_COLOR: Record<string, string> = {
+  kuliner: "#10b981", ternak: "#8b5cf6", homeindustry: "#f59e0b", retail: "#3b82f6",
+};
+const BULAN_FULL = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const BULAN_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
 
 function fmtRp(n: number) {
-  if (n >= 1000000) return "Rp" + (n / 1000000).toFixed(1) + "jt";
+  if (n >= 1000000) return "Rp" + (n / 1000000).toFixed(1).replace(".0", "") + "jt";
   if (n >= 1000) return "Rp" + Math.round(n / 1000) + "rb";
   return "Rp" + Math.round(n).toLocaleString("id-ID");
 }
 function fmtFull(n: number) { return "Rp" + Math.round(n).toLocaleString("id-ID"); }
 
-const S = {
-  card: { background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 16 } as React.CSSProperties,
-  label: { fontSize: 10, color: "#5A5B7A", marginBottom: 6 } as React.CSSProperties,
-  title: { fontSize: 12, fontWeight: 600, color: "#F0EFF8", marginBottom: 12 } as React.CSSProperties,
+const STATUS_STYLE: Record<string, string> = {
+  Selesai: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+  Diproses: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+  Pending: "bg-amber-500/15 text-amber-400 border-amber-500/20",
 };
 
-export default function DashboardOwnerClient({ businesses, bulan, tahun, userId, userName }: {
-  businesses: Business[]; bulan: number; tahun: number; userId: string; userName: string;
+export default function DashboardOwnerClient({
+  businesses, topProducts, recentTransactions, bulan, tahun, userId, userName,
+}: {
+  businesses: Business[];
+  topProducts: TopProduct[];
+  recentTransactions: RecentTransaction[];
+  bulan: number; tahun: number; userId: string; userName: string;
 }) {
   const router = useRouter();
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const rangeFilter = searchParams.get("range") || "month";
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customFrom, setCustomFrom] = useState(new Date().toISOString().split("T")[0]);
   const [customTo, setCustomTo] = useState(new Date().toISOString().split("T")[0]);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [editingTarget, setEditingTarget] = useState<string | null>(null);
-  const [targetInput, setTargetInput] = useState("");
-  const [savingTarget, setSavingTarget] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [selectedBiz, setSelectedBiz] = useState<string>("all");
   const [showBizDropdown, setShowBizDropdown] = useState(false);
-  const [showNotif, setShowNotif] = useState(false);
+  const [selectedBiz, setSelectedBiz] = useState<string>("all");
+  const [showBizDropdown, setShowBizDropdown] = useState(false);
+  const [chartTab, setChartTab] = useState("Harian");
 
   const filteredBusinesses = selectedBiz === "all" ? businesses : businesses.filter(b => b.id === selectedBiz);
   const totalOmzet = filteredBusinesses.reduce((s, b) => s + b.omzetBulan, 0);
@@ -58,366 +69,416 @@ export default function DashboardOwnerClient({ businesses, bulan, tahun, userId,
   const totalRugi = filteredBusinesses.reduce((s, b) => s + Math.abs(Math.min(0, b.labaBulan)), 0);
   const totalOrder = filteredBusinesses.reduce((s, b) => s + b.totalOrderBulan, 0);
   const avgOrder = totalOrder > 0 ? Math.round(totalOmzet / totalOrder) : 0;
-  const avgGrowth = filteredBusinesses.length > 0 ? Math.round(filteredBusinesses.reduce((s, b) => s + b.growthPct, 0) / businesses.length) : 0;
-  const ranked = [...filteredBusinesses].sort((a, b) => b.labaBulan - a.labaBulan);
+  const avgGrowth = filteredBusinesses.length > 0
+    ? Math.round(filteredBusinesses.reduce((s, b) => s + b.growthPct, 0) / filteredBusinesses.length)
+    : 0;
   const topGrowth = [...filteredBusinesses].sort((a, b) => b.growthPct - a.growthPct)[0];
 
   const alerts = businesses
     .filter(b => b.stokKritis.length > 0)
-    .map(b => ({ id: "stok-" + b.id, biz: b, title: b.name + " — " + b.stokKritis.length + " bahan hampir habis", sub: b.stokKritis.slice(0, 3).map(p => p.name).join(", ") }));
+    .map(b => ({
+      id: "stok-" + b.id,
+      title: b.name + " — " + b.stokKritis.length + " bahan hampir habis",
+      sub: b.stokKritis.slice(0, 3).map(p => p.name).join(", "),
+    }));
   const visibleAlerts = alerts.filter(a => !dismissedAlerts.includes(a.id));
 
-  const allExpenses: Record<string, number> = {};
-  businesses.forEach(b => { Object.entries(b.pengeluaranByCategory).forEach(([cat, amt]) => { allExpenses[cat] = (allExpenses[cat] || 0) + amt; }); });
-  const totalExpense = Object.values(allExpenses).reduce((s, v) => s + v, 0);
-
   const setRange = (r: string) => router.push("/dashboard/owner?range=" + r);
-  const applyCustom = () => { router.push("/dashboard/owner?range=custom&from=" + customFrom + "&to=" + customTo); setShowDatePicker(false); };
-
-  const saveTarget = async (bizId: string) => {
-    setSavingTarget(true);
-    await supabase.from("business_targets").upsert({ business_id: bizId, user_id: userId, bulan, tahun, target_omzet: Number(targetInput) || 0 }, { onConflict: "business_id,bulan,tahun" });
-    setSavingTarget(false);
-    setEditingTarget(null);
-    router.refresh();
+  const applyCustom = () => {
+    router.push("/dashboard/owner?range=custom&from=" + customFrom + "&to=" + customTo);
+    setShowDatePicker(false);
   };
 
   const chartData = Array.from({ length: 30 }, (_, i) => {
     const day = String(i + 1).padStart(2, "0");
     const dateKey = tahun + "-" + String(bulan).padStart(2, "0") + "-" + day;
-    const total = businesses.reduce((s, b) => s + (b.dailyMap[dateKey] || 0), 0);
-    return { day: i + 1, omzet: Math.round(total / 1000) };
+    const total = filteredBusinesses.reduce((s, b) => s + (b.dailyMap[dateKey] || 0), 0);
+    return { day: i + 1, label: BULAN_SHORT[bulan - 1] + " " + (i + 1), omzet: Math.round(total / 1000) };
   });
 
-  const donutData = businesses.filter(b => b.omzetBulan > 0).map(b => ({ name: b.name, value: b.omzetBulan, color: TYPE_COLOR[b.type] || "#8B8AA0" }));
+  const donutData = filteredBusinesses
+    .filter(b => b.omzetBulan > 0)
+    .map(b => ({ name: b.name, value: b.omzetBulan, color: TYPE_COLOR[b.type] || "#8b5cf6" }));
+
+  const today = new Date();
+  const dateLabel = today.getDate() + " " + BULAN_FULL[today.getMonth()] + " " + today.getFullYear();
+
+  const kpis = [
+    { label: "Total Omzet", value: fmtFull(totalOmzet), delta: avgGrowth, icon: TrendingUp, iconBg: "bg-violet-500/15", iconColor: "text-violet-400", positive: true },
+    { label: "Total Laba", value: fmtFull(totalLaba), delta: avgGrowth, icon: DollarSign, iconBg: "bg-emerald-500/15", iconColor: "text-emerald-400", positive: true },
+    { label: "Total Rugi", value: fmtFull(totalRugi), delta: 0, icon: TrendingDown, iconBg: "bg-red-500/15", iconColor: "text-red-400", positive: false },
+    { label: "Total Order", value: String(totalOrder), delta: 5, icon: ShoppingBag, iconBg: "bg-blue-500/15", iconColor: "text-blue-400", positive: true },
+    { label: "Rata-rata Order", value: fmtRp(avgOrder), delta: 3, icon: Receipt, iconBg: "bg-amber-500/15", iconColor: "text-amber-400", positive: true },
+  ];
 
   return (
-    <div style={{ fontFamily: "'Space Grotesk', sans-serif", color: "#F0EFF8", minHeight: "100vh", background: "#070711" }}>
+    <div className="min-h-screen bg-[#0b0e14] text-slate-100">
 
-      <div style={{ padding: "16px 20px 14px", borderBottom: "0.5px solid rgba(255,255,255,.06)" }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#F0EFF8" }}>Halo, {userName} 👋</h1>
-        <p style={{ fontSize: 12, color: "#5A5B7A", marginTop: 3 }}>Berikut ringkasan performa bisnismu · {BULAN[bulan - 1]} {tahun}</p>
-      </div>
-
-      <div style={{ padding: "10px 20px", borderBottom: "0.5px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ position: "relative", flex: 1, maxWidth: 220 }}>
-          <Search size={11} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#3A3B52" }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari bisnis..." style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.07)", borderRadius: 8, padding: "6px 10px 6px 28px", fontSize: 12, color: "#F0EFF8", outline: "none", width: "100%", fontFamily: "'Space Grotesk', sans-serif" }} />
-        </div>
-        {[{ k: "today", l: "Hari ini" }, { k: "month", l: "Bulan ini" }, { k: "year", l: "Tahun ini" }].map(f => (
-          <button key={f.k} onClick={() => setRange(f.k)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: rangeFilter === f.k ? "0.5px solid #2DD4BF" : "0.5px solid rgba(255,255,255,.08)", background: rangeFilter === f.k ? "rgba(45,212,191,.1)" : "#0D0D1A", color: rangeFilter === f.k ? "#2DD4BF" : "#8B8AA0", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>{f.l}</button>
-        ))}
-        <div style={{ position: "relative" }}>
-          <button onClick={() => setShowDatePicker(!showDatePicker)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: rangeFilter === "custom" ? "0.5px solid #2DD4BF" : "0.5px solid rgba(255,255,255,.08)", background: rangeFilter === "custom" ? "rgba(45,212,191,.1)" : "#0D0D1A", color: rangeFilter === "custom" ? "#2DD4BF" : "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Calendar size={11} /> Custom
-          </button>
-          {showDatePicker && (
-            <div style={{ position: "absolute", top: 38, left: 0, background: "#161622", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 10, padding: 14, width: 210, zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
-              <label style={{ fontSize: 10, color: "#5A5B7A", display: "block", marginBottom: 4 }}>Dari</label>
-              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ width: "100%", background: "#070711", border: "0.5px solid rgba(255,255,255,.08)", borderRadius: 6, padding: "6px 8px", color: "#F0EFF8", fontSize: 12, marginBottom: 8, colorScheme: "dark", fontFamily: "'Space Grotesk', sans-serif" }} />
-              <label style={{ fontSize: 10, color: "#5A5B7A", display: "block", marginBottom: 4 }}>Sampai</label>
-              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ width: "100%", background: "#070711", border: "0.5px solid rgba(255,255,255,.08)", borderRadius: 6, padding: "6px 8px", color: "#F0EFF8", fontSize: 12, marginBottom: 10, colorScheme: "dark", fontFamily: "'Space Grotesk', sans-serif" }} />
-              <button onClick={applyCustom} style={{ width: "100%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", borderRadius: 6, padding: 7, color: "#070711", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Terapkan</button>
-            </div>
-          )}
-        </div>
-        <div style={{ position: "relative" }}>
-          <button onClick={() => setShowBizDropdown(!showBizDropdown)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#0D0D1A", color: "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
-            🏢 {selectedBiz === "all" ? "Semua Bisnis" : (businesses.find(b => b.id === selectedBiz)?.name || "Bisnis")} ▼
-          </button>
-          {showBizDropdown && (
-            <div style={{ position: "absolute", top: 38, right: 0, background: "#161622", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 10, padding: 6, minWidth: 200, zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
-              <button onClick={() => { setSelectedBiz("all"); setShowBizDropdown(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", background: selectedBiz === "all" ? "rgba(45,212,191,.1)" : "transparent", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, color: selectedBiz === "all" ? "#2DD4BF" : "#C4C3D4", textAlign: "left", fontFamily: "'Space Grotesk', sans-serif" }}>
-                🌐 Semua Bisnis
-              </button>
-              {businesses.map(b => (
-                <button key={b.id} onClick={() => { setSelectedBiz(b.id); setShowBizDropdown(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", background: selectedBiz === b.id ? "rgba(45,212,191,.1)" : "transparent", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, color: selectedBiz === b.id ? "#2DD4BF" : "#C4C3D4", textAlign: "left", fontFamily: "'Space Grotesk', sans-serif" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: TYPE_COLOR[b.type] || "#8B8AA0", flexShrink: 0 }}></span>
-                  {b.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ position: "relative" }}>
-          <button onClick={() => setShowNotif(!showNotif)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.08)", cursor: "pointer", color: "#8B8AA0", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            🔔
-            {visibleAlerts.length > 0 && <span style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: "50%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", fontSize: 8, color: "#070711", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{visibleAlerts.length}</span>}
-          </button>
-        </div>
-
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#070711", cursor: "pointer" }}>
-          {userName[0].toUpperCase()}
-        </div>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => window.print()} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#0D0D1A", color: "#8B8AA0", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Printer size={11} /> Cetak
-          </button>
-          <button style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", color: "#070711", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Plus size={11} /> Bisnis
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 16, padding: "16px 20px", alignItems: "flex-start" }}>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 16 }}>
-            {[
-              { label: "Total Omzet", value: fmtFull(totalOmzet), delta: avgGrowth, color: "#2DD4BF" },
-              { label: "Total Laba", value: fmtFull(totalLaba), delta: avgGrowth, color: "#8B5CF6" },
-              { label: "Total Rugi", value: fmtFull(totalRugi), delta: 0, color: "#EC4899", down: true },
-              { label: "Total Order", value: String(totalOrder), delta: 5, color: "#F59E0B" },
-              { label: "Rata-rata Order", value: fmtRp(avgOrder), delta: 3, color: "#2DD4BF" },
-            ].map((k, i) => (
-              <div key={i} style={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.06)", borderRadius: 13, padding: 14, borderBottom: "2.5px solid " + k.color }}>
-                <p style={S.label}>{k.label}</p>
-                <p style={{ fontSize: 17, fontWeight: 700, fontFamily: "JetBrains Mono, monospace", color: k.color, marginBottom: 4 }}>{k.value}</p>
-                <p style={{ fontSize: 10, color: k.down ? "#EC4899" : "#2DD4BF" }}>{k.down ? "↓" : "↑"}{Math.abs(k.delta)}% vs periode lalu</p>
-              </div>
-            ))}
+      {/* ── Header ── */}
+      <header className="border-b border-white/[0.06] px-6 py-5 no-print">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="fade-up">
+            <h1 className="text-2xl font-bold text-white">Halo, {userName} 👋</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Berikut ringkasan performa bisnismu · {BULAN_FULL[bulan - 1]} {tahun}
+            </p>
           </div>
 
-          <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-              <p style={{ fontSize: 13, fontWeight: 600 }}>Grafik Omzet</p>
-              <div style={{ display: "flex", gap: 3, background: "#070711", borderRadius: 8, padding: 3 }}>
+          <div className="flex flex-wrap items-center gap-2 fade-up" style={{ animationDelay: "0.05s" }}>
+            {/* Search */}
+            <div className="relative min-w-[180px] flex-1 xl:max-w-[240px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Cari bisnis..."
+                className="w-full rounded-xl border border-white/[0.07] bg-[#151921] py-2 pl-9 pr-3 text-sm text-slate-200 outline-none transition-colors placeholder:text-slate-600 focus:border-violet-500/40"
+              />
+            </div>
+
+            {/* Date picker */}
+            <div className="relative">
+              <button
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#151921] px-3 py-2 text-sm text-slate-400 transition-colors hover:border-violet-500/30 hover:text-slate-200"
+              >
+                <Calendar size={14} />
+                <span className="hidden sm:inline">{dateLabel}</span>
+                <ChevronDown size={13} />
+              </button>
+              {showDatePicker && (
+                <div className="absolute right-0 top-11 z-50 w-52 rounded-2xl border border-white/10 bg-[#1a2030] p-4 shadow-2xl scale-in">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Periode</p>
+                  {[{ k: "today", l: "Hari ini" }, { k: "month", l: "Bulan ini" }, { k: "year", l: "Tahun ini" }].map(f => (
+                    <button key={f.k} onClick={() => { setRange(f.k); setShowDatePicker(false); }}
+                      className={["mb-1 w-full rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                        rangeFilter === f.k ? "bg-violet-600/20 text-violet-300" : "text-slate-400 hover:bg-white/[0.04]"].join(" ")}>
+                      {f.l}
+                    </button>
+                  ))}
+                  <div className="my-2 border-t border-white/[0.06]" />
+                  <label className="mb-1 block text-[10px] text-slate-500">Dari</label>
+                  <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                    className="mb-2 w-full rounded-lg border border-white/[0.08] bg-[#0b0e14] px-2 py-1.5 text-xs text-slate-300 outline-none" />
+                  <label className="mb-1 block text-[10px] text-slate-500">Sampai</label>
+                  <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                    className="mb-3 w-full rounded-lg border border-white/[0.08] bg-[#0b0e14] px-2 py-1.5 text-xs text-slate-300 outline-none" />
+                  <button onClick={applyCustom}
+                    className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2 text-xs font-bold text-white">
+                    Terapkan
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Business filter */}
+            <div className="relative">
+              <button
+                onClick={() => setShowBizDropdown(!showBizDropdown)}
+                className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#151921] px-3 py-2 text-sm text-slate-400 transition-colors hover:border-violet-500/30 hover:text-slate-200"
+              >
+                🏢 {selectedBiz === "all" ? "Semua Bisnis" : (businesses.find(b => b.id === selectedBiz)?.name || "Bisnis")}
+                <ChevronDown size={13} />
+              </button>
+              {showBizDropdown && (
+                <div className="absolute right-0 top-11 z-50 min-w-[200px] rounded-2xl border border-white/10 bg-[#1a2030] p-2 shadow-2xl scale-in">
+                  <button onClick={() => { setSelectedBiz("all"); setShowBizDropdown(false); }}
+                    className={["flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
+                      selectedBiz === "all" ? "bg-violet-600/20 text-violet-300" : "text-slate-400 hover:bg-white/[0.04]"].join(" ")}>
+                    🌐 Semua Bisnis
+                  </button>
+                  {businesses.map(b => (
+                    <button key={b.id} onClick={() => { setSelectedBiz(b.id); setShowBizDropdown(false); }}
+                      className={["flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
+                        selectedBiz === b.id ? "bg-violet-600/20 text-violet-300" : "text-slate-400 hover:bg-white/[0.04]"].join(" ")}>
+                      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: TYPE_COLOR[b.type] || "#8b5cf6" }} />
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Notification */}
+            <button className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.07] bg-[#151921] text-slate-400 transition-colors hover:border-violet-500/30 hover:text-slate-200">
+              <Bell size={15} />
+              {visibleAlerts.length > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                  {visibleAlerts.length}
+                </span>
+              )}
+            </button>
+
+            {/* Avatar */}
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-bold text-white">
+              {userName[0].toUpperCase()}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="space-y-6 p-6">
+
+        {/* ── KPI Cards ── */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {kpis.map((k, i) => (
+            <div
+              key={k.label}
+              className="dashboard-card dashboard-card-hover fade-up p-5"
+              style={{ animationDelay: `${i * 0.06}s` }}
+            >
+              <div className="mb-4 flex items-start justify-between">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${k.iconBg}`}>
+                  <k.icon size={18} className={k.iconColor} />
+                </div>
+                <span className="text-[11px] text-slate-500">{k.label}</span>
+              </div>
+              <p className="mb-2 text-xl font-bold text-white">{k.value}</p>
+              <div className={`flex items-center gap-1 text-[11px] ${k.positive ? "text-emerald-400" : "text-red-400"}`}>
+                {k.positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                {Math.abs(k.delta)}% vs bulan lalu
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Chart + Alerts ── */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          {/* Chart */}
+          <div className="dashboard-card fade-up p-5 xl:col-span-2" style={{ animationDelay: "0.1s" }}>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-white">Grafik Omzet</h2>
+              <div className="flex gap-1 rounded-xl bg-[#0b0e14] p-1">
                 {["Harian", "Mingguan", "Bulanan"].map((t, i) => (
-                  <button key={t} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, border: "none", background: i === 0 ? "linear-gradient(135deg,#2DD4BF,#8B5CF6)" : "transparent", color: i === 0 ? "#070711" : "#5A5B7A", cursor: "pointer", fontWeight: i === 0 ? 700 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>{t}</button>
+                  <button
+                    key={t}
+                    onClick={() => setChartTab(t)}
+                    className={[
+                      "rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all",
+                      chartTab === t
+                        ? "bg-violet-600 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300",
+                    ].join(" ")}
+                  >
+                    {t}
+                  </button>
                 ))}
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
-                <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#3A3B52" }} tickLine={false} axisLine={false} interval={4} />
-                <YAxis tick={{ fontSize: 9, fill: "#3A3B52" }} tickLine={false} axisLine={false} tickFormatter={v => "Rp" + v + "rb"} width={55} />
-                <Tooltip contentStyle={{ background: "#0D0D1A", border: "0.5px solid rgba(45,212,191,.3)", borderRadius: 8, fontSize: 11, color: "#F0EFF8" }} />
-                <Line type="monotone" dataKey="omzet" stroke="#2DD4BF" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#2DD4BF" }} />
-              </LineChart>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="omzetGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} interval={4} />
+                <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} tickFormatter={v => "Rp" + v + "rb"} width={55} />
+                <Tooltip
+                  contentStyle={{ background: "#151921", border: "1px solid rgba(124,58,237,0.3)", borderRadius: 12, fontSize: 12, color: "#f8fafc" }}
+                  formatter={(v: unknown) => [fmtFull(Number(v) * 1000), "Omzet"]}
+                />
+                <Area type="monotone" dataKey="omzet" stroke="#7c3aed" strokeWidth={2.5} fill="url(#omzetGrad)" dot={false} activeDot={{ r: 5, fill: "#7c3aed", stroke: "#a78bfa", strokeWidth: 2 }} />
+              </AreaChart>
             </ResponsiveContainer>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "0.5px solid rgba(255,255,255,.05)" }}>
+            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4 sm:grid-cols-4">
               {[
-                { label: "Omzet Tertinggi", value: fmtRp(Math.max(...chartData.map(d => d.omzet), 0) * 1000), dot: "#EC4899" },
-                { label: "Omzet Terendah", value: fmtRp(Math.min(...chartData.filter(d => d.omzet > 0).map(d => d.omzet), 0) * 1000), dot: "#8B5CF6" },
-                { label: "Rata-rata Harian", value: fmtRp(Math.round(totalOmzet / 30)), dot: "#F59E0B" },
-                { label: "Growth Terbaik", value: (topGrowth ? topGrowth.growthPct : 0) + "%", sub: topGrowth?.name || "-", dot: "#2DD4BF", pos: true },
-              ].map((s, i) => (
-                <div key={i}>
-                  <div style={{ fontSize: 10, color: "#5A5B7A", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
+                { label: "Omzet Tertinggi", value: fmtRp(Math.max(...chartData.map(d => d.omzet), 0) * 1000), dot: "#ef4444" },
+                { label: "Omzet Terendah", value: fmtRp(Math.min(...chartData.filter(d => d.omzet > 0).map(d => d.omzet), 0) * 1000), dot: "#8b5cf6" },
+                { label: "Rata-rata Harian", value: fmtRp(Math.round(totalOmzet / 30)), dot: "#f59e0b" },
+                { label: "Growth Terbaik", value: (topGrowth?.growthPct ?? 0) + "%", sub: topGrowth?.name, dot: "#10b981" },
+              ].map(s => (
+                <div key={s.label}>
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />
                     {s.label}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "JetBrains Mono, monospace", color: s.pos ? "#2DD4BF" : "#F0EFF8" }}>{s.value}</div>
+                  <p className="text-sm font-semibold text-white">{s.value}</p>
+                  {s.sub && <p className="truncate text-[10px] text-slate-600">{s.sub}</p>}
                 </div>
               ))}
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div style={S.card}>
-              <p style={S.title}>Ranking Bisnis Paling Untung</p>
-              {ranked.map((b, i) => {
-                const maxLaba = Math.max(...ranked.map(x => Math.max(0, x.labaBulan)), 1);
-                const rankColors = ["#F59E0B", "#9CA3AF", "#D97706"];
-                const rankBg = ["rgba(245,158,11,.15)", "rgba(156,163,175,.15)", "rgba(217,119,6,.15)"];
-                return (
-                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < ranked.length - 1 ? "0.5px solid rgba(255,255,255,.04)" : "none" }}>
-                    <div style={{ width: 20, height: 20, borderRadius: 6, background: rankBg[i] || "rgba(255,255,255,.05)", color: rankColors[i] || "#8B8AA0", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                        <span style={{ color: "#E4E7EC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
-                        <span style={{ fontFamily: "JetBrains Mono, monospace", color: "#2DD4BF", flexShrink: 0, marginLeft: 8 }}>{fmtRp(Math.max(0, b.labaBulan))}</span>
-                      </div>
-                      <div style={{ height: 5, background: "rgba(255,255,255,.04)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: Math.max(0, b.labaBulan) / maxLaba * 100 + "%", background: TYPE_COLOR[b.type] || "#8B8AA0", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Perlu Perhatian */}
+          <div className="dashboard-card fade-up p-5" style={{ animationDelay: "0.15s" }}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Perlu Perhatian</h2>
+              <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-medium text-red-400">
+                {visibleAlerts.length} alert
+              </span>
             </div>
-
-            <div style={S.card}>
-              <p style={S.title}>Performa Per Bisnis</p>
-              {businesses.filter(b => b.name.toLowerCase().includes(search.toLowerCase())).map(b => (
-                <div key={b.id}>
-                  <div onClick={() => setExpandedRow(expandedRow === b.id ? null : b.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)", cursor: "pointer" }}>
-                    {expandedRow === b.id ? <ChevronDown size={11} style={{ color: "#5A5B7A", flexShrink: 0 }} /> : <ChevronRight size={11} style={{ color: "#5A5B7A", flexShrink: 0 }} />}
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: TYPE_COLOR[b.type] || "#8B8AA0", flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 11, color: "#F0EFF8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</p>
-                      <p style={{ fontSize: 10, color: "#5A5B7A" }}>{TYPE_LABEL[b.type] || b.type}</p>
-                    </div>
-                    <p style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace", color: b.labaBulan >= 0 ? "#2DD4BF" : "#EC4899", flexShrink: 0 }}>{fmtRp(b.omzetBulan)}</p>
-                  </div>
-                  {expandedRow === b.id && (
-                    <div style={{ background: "#070711", padding: "10px 14px", borderRadius: 8, margin: "4px 0 8px" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {[["Omzet", fmtFull(b.omzetBulan)], ["Laba/Rugi", (b.labaBulan >= 0 ? "+" : "") + fmtFull(b.labaBulan)], ["Margin", b.margin + "%"], ["Order", String(b.totalOrderBulan)]].map(([k, v]) => (
-                          <div key={k} style={{ background: "#0D0D1A", borderRadius: 7, padding: "8px 10px", border: "0.5px solid rgba(255,255,255,.05)" }}>
-                            <p style={{ fontSize: 10, color: "#5A5B7A", marginBottom: 3 }}>{k}</p>
-                            <p style={{ fontSize: 12, fontWeight: 600, fontFamily: "JetBrains Mono, monospace" }}>{v}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {b.stokKritis.length > 0 && (
-                        <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(245,158,11,.06)", border: "0.5px solid rgba(245,158,11,.15)", borderRadius: 7, fontSize: 10, color: "#F59E0B" }}>
-                          Stok kritis: {b.stokKritis.map(p => p.name).join(", ")}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {totalExpense > 0 && (
-            <div style={{ ...S.card, marginBottom: 16 }}>
-              <p style={S.title}>Breakdown Pengeluaran</p>
-              {Object.entries(allExpenses).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => (
-                <div key={cat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{ width: 110, fontSize: 11, color: "#8B8AA0", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat}</div>
-                  <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.04)", borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: amt / totalExpense * 100 + "%", background: "linear-gradient(90deg,#2DD4BF,#8B5CF6)", borderRadius: 4 }} />
-                  </div>
-                  <div style={{ width: 85, textAlign: "right", fontSize: 11, fontFamily: "JetBrains Mono, monospace", flexShrink: 0 }}>{fmtFull(amt)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-        </div>
-
-        <div style={{ width: 255, flexShrink: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-
-          <div style={S.card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <p style={{ fontSize: 12, fontWeight: 600 }}>Perlu Perhatian</p>
-              <span style={{ fontSize: 10, color: "#2DD4BF" }}>{visibleAlerts.length} alert</span>
-            </div>
-            {visibleAlerts.length === 0 && <p style={{ fontSize: 11, color: "#3A3B52", textAlign: "center", padding: "10px 0" }}>Semua aman ✓</p>}
-            {visibleAlerts.map(a => (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
-                <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(236,72,153,.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <AlertTriangle size={11} style={{ color: "#EC4899" }} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 11, color: "#F0EFF8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</p>
-                  <p style={{ fontSize: 10, color: "#5A5B7A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.sub}</p>
-                </div>
-                <button onClick={() => router.push("/dashboard/inventory")} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "rgba(236,72,153,.1)", color: "#EC4899", border: "none", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Lihat</button>
-                <button onClick={() => setDismissedAlerts(prev => [...prev, a.id])} style={{ background: "none", border: "0.5px solid rgba(255,255,255,.08)", color: "#5A5B7A", borderRadius: 6, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                  <X size={10} />
-                </button>
+            {visibleAlerts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-2xl">✓</div>
+                <p className="text-sm text-slate-500">Semua aman, tidak ada alert</p>
               </div>
-            ))}
-          </div>
-
-          <div style={S.card}>
-            <p style={S.title}>Kontribusi Per Bisnis</p>
-            {totalOmzet > 0 ? (
-              <>
-                <PieChart width={223} height={110}>
-                  <Pie data={donutData} cx={111} cy={55} innerRadius={34} outerRadius={50} dataKey="value" paddingAngle={2}>
-                    {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip formatter={(v: unknown) => fmtFull(Number(v))} contentStyle={{ background: "#0D0D1A", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 8, fontSize: 11 }} />
-                </PieChart>
-                {businesses.map(b => (
-                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: "0.5px solid rgba(255,255,255,.04)" }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: TYPE_COLOR[b.type] || "#8B8AA0", flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: 10, color: "#8B8AA0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
-                    <span style={{ fontSize: 10, color: "#5A5B7A", marginRight: 6 }}>{totalOmzet > 0 ? Math.round(b.omzetBulan / totalOmzet * 100) : 0}%</span>
-                    <span style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", color: "#F0EFF8" }}>{fmtRp(b.omzetBulan)}</span>
-                  </div>
-                ))}
-              </>
-            ) : <p style={{ fontSize: 11, color: "#3A3B52", textAlign: "center", padding: "20px 0" }}>Belum ada omzet</p>}
-          </div>
-
-          <div style={{ background: "linear-gradient(135deg,rgba(45,212,191,.08),rgba(139,92,246,.04))", border: "0.5px solid rgba(45,212,191,.2)", borderRadius: 13, padding: 14 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, padding: "2px 7px", borderRadius: 5, background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", color: "#070711", fontWeight: 700, marginBottom: 10 }}>
-              Insight AI ❖ Baru
-            </div>
-            {topGrowth && (
-              <div style={{ display: "flex", gap: 6, fontSize: 11, color: "#8B8AA0", lineHeight: 1.5, marginBottom: 7 }}>
-                <span style={{ color: "#2DD4BF", flexShrink: 0 }}>✓</span>
-                <span><strong style={{ color: "#F0EFF8" }}>{topGrowth.name}</strong> {topGrowth.growthPct >= 0 ? "tumbuh" : "turun"} {Math.abs(topGrowth.growthPct)}% dibanding periode lalu.</span>
-              </div>
-            )}
-            {visibleAlerts.length > 0 && (
-              <div style={{ display: "flex", gap: 6, fontSize: 11, color: "#8B8AA0", lineHeight: 1.5, marginBottom: 7 }}>
-                <span style={{ color: "#EC4899", flexShrink: 0 }}>⚠</span>
-                <span>{visibleAlerts.length} bisnis dengan stok hampir habis. Cek segera.</span>
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 6, fontSize: 11, color: "#8B8AA0", lineHeight: 1.5, marginBottom: 7 }}>
-              <span style={{ color: "#2DD4BF", flexShrink: 0 }}>✓</span>
-              <span>Total {businesses.length} bisnis aktif dengan {totalOrder} order bulan ini.</span>
-            </div>
-            <button style={{ width: "100%", background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", borderRadius: 8, padding: 8, color: "#070711", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
-              Lihat Analisis Lengkap →
-            </button>
-          </div>
-
-          <div style={S.card}>
-            <p style={S.title}>Target Omzet</p>
-            {businesses.map(b => {
-              const pct = Math.min(100, b.targetPct);
-              const color = pct >= 90 ? "#2DD4BF" : pct >= 50 ? "#F59E0B" : "#EC4899";
-              return (
-                <div key={b.id} style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                    <span style={{ fontSize: 11, color: "#C4C3D4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{b.name}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
-                      <span style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", color }}>{b.targetOmzet > 0 ? pct + "%" : "-"}</span>
-                      <button onClick={() => { setEditingTarget(b.id); setTargetInput(String(b.targetOmzet)); }} style={{ background: "none", border: "0.5px solid rgba(255,255,255,.08)", borderRadius: 5, width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5A5B7A" }}>
-                        <Pencil size={9} />
+            ) : (
+              <div className="space-y-1">
+                {visibleAlerts.map(a => (
+                  <div key={a.id} className="flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-white/[0.02]">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+                      <AlertTriangle size={14} className="text-red-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-200">{a.title}</p>
+                      <p className="truncate text-[11px] text-slate-500">{a.sub}</p>
+                    </div>
+                    <div className="flex flex-shrink-0 gap-1">
+                      <button onClick={() => router.push("/dashboard/inventory")}
+                        className="rounded-lg bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-400 transition-colors hover:bg-red-500/20">
+                        Lihat
+                      </button>
+                      <button onClick={() => setDismissedAlerts(prev => [...prev, a.id])}
+                        className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/[0.08] text-slate-500 transition-colors hover:text-slate-300">
+                        <X size={11} />
                       </button>
                     </div>
                   </div>
-                  <div style={{ height: 6, background: "rgba(255,255,255,.04)", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: pct + "%", background: color, borderRadius: 3 }} />
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#5A5B7A", marginTop: 3 }}>
-                    <span>{fmtRp(b.omzetBulan)}</span>
-                    <span>{b.targetOmzet > 0 ? fmtRp(b.targetOmzet) : "Belum diset"}</span>
-                  </div>
-                  {editingTarget === b.id && (
-                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                      <input type="number" value={targetInput} onChange={e => setTargetInput(e.target.value)} placeholder="Target (Rp)" style={{ flex: 1, background: "#070711", border: "0.5px solid rgba(255,255,255,.1)", borderRadius: 6, padding: "5px 8px", fontSize: 11, color: "#F0EFF8", fontFamily: "JetBrains Mono, monospace", outline: "none" }} />
-                      <button onClick={() => saveTarget(b.id)} disabled={savingTarget} style={{ background: "#2DD4BF", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, color: "#070711", cursor: "pointer" }}>{savingTarget ? "..." : "✓"}</button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={S.card}>
-            <p style={S.title}>Ekspor Rekap</p>
-            {[
-              { icon: "📊", label: "Excel · semua bisnis" },
-              { icon: "📄", label: "PDF · laporan bulanan" },
-              { icon: "💬", label: "Kirim ke WhatsApp" },
-              { icon: "⏰", label: "Jadwalkan otomatis" },
-            ].map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? "0.5px solid rgba(255,255,255,.04)" : "none", cursor: "pointer" }}>
-                <span style={{ fontSize: 11, color: "#8B8AA0" }}>{item.icon} {item.label}</span>
-                <ChevronRight size={11} style={{ color: "#3A3B52" }} />
+                ))}
               </div>
-            ))}
-            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-              <button style={{ flex: 1, fontSize: 11, padding: 8, borderRadius: 8, border: "0.5px solid rgba(255,255,255,.08)", background: "#161622", color: "#8B8AA0", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Preview</button>
-              <button style={{ flex: 1, fontSize: 11, padding: 8, borderRadius: 8, background: "linear-gradient(135deg,#2DD4BF,#8B5CF6)", border: "none", color: "#070711", fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif" }}>Unduh</button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Bottom Row ── */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+
+          {/* Top Produk Terlaris */}
+          <div className="dashboard-card dashboard-card-hover fade-up p-5" style={{ animationDelay: "0.2s" }}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Top Produk Terlaris</h2>
+              <button className="text-[11px] text-violet-400 transition-colors hover:text-violet-300">Lihat Semua</button>
             </div>
+            {topProducts.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-600">Belum ada data produk</p>
+            ) : (
+              <div className="space-y-3">
+                {topProducts.map((p, i) => (
+                  <div key={p.id} className="flex items-center gap-3">
+                    <span className="w-4 flex-shrink-0 text-center text-[11px] font-bold text-slate-600">{i + 1}</span>
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#0b0e14] text-base">
+                      {p.emoji}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-200">{p.name}</p>
+                      <p className="text-[11px] text-slate-500">{p.sold > 0 ? p.sold + " terjual" : "Belum terjual"}</p>
+                    </div>
+                    <p className="flex-shrink-0 text-sm font-semibold text-white">{fmtRp(p.revenue)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Transaksi Terbaru */}
+          <div className="dashboard-card dashboard-card-hover fade-up p-5" style={{ animationDelay: "0.25s" }}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Transaksi Terbaru</h2>
+              <button className="text-[11px] text-violet-400 transition-colors hover:text-violet-300">Lihat Semua</button>
+            </div>
+            {recentTransactions.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-600">Belum ada transaksi</p>
+            ) : (
+              <div className="space-y-3">
+                {recentTransactions.map(tx => (
+                  <div key={tx.id} className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-indigo-600/30 text-xs font-bold text-violet-300">
+                      {tx.customer[0]?.toUpperCase() || "P"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-200">{tx.customer}</p>
+                      <span className={`inline-block rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${STATUS_STYLE[tx.status]}`}>
+                        {tx.status}
+                      </span>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-sm font-semibold text-white">{fmtRp(tx.amount)}</p>
+                      <p className="text-[10px] text-slate-600">{tx.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Channel Penjualan */}
+          <div className="dashboard-card dashboard-card-hover fade-up p-5" style={{ animationDelay: "0.3s" }}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Channel Penjualan</h2>
+              <button className="text-[11px] text-violet-400 transition-colors hover:text-violet-300">Detail</button>
+            </div>
+            {donutData.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-600">Belum ada data</p>
+            ) : (
+              <>
+                <div className="relative mx-auto mb-3" style={{ width: 140, height: 140 }}>
+                  <PieChart width={140} height={140}>
+                    <Pie data={donutData} cx={70} cy={70} innerRadius={42} outerRadius={62} dataKey="value" paddingAngle={3} strokeWidth={0}>
+                      {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Pie>
+                  </PieChart>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-[10px] text-slate-500">Total</p>
+                    <p className="text-xs font-bold text-white">{fmtRp(totalOmzet)}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {donutData.map(d => (
+                    <div key={d.name} className="flex items-center gap-2">
+                      <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: d.color }} />
+                      <span className="flex-1 truncate text-[11px] text-slate-400">{d.name}</span>
+                      <span className="text-[11px] text-slate-500">{totalOmzet > 0 ? Math.round(d.value / totalOmzet * 100) : 0}%</span>
+                      <span className="text-[11px] font-medium text-slate-300">{fmtRp(d.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Insight AI */}
+          <div
+            className="fade-up overflow-hidden rounded-2xl border border-violet-500/25 p-5"
+            style={{
+              animationDelay: "0.35s",
+              background: "linear-gradient(135deg, rgba(124,58,237,0.18) 0%, rgba(79,70,229,0.12) 50%, rgba(99,102,241,0.08) 100%)",
+            }}
+          >
+            <div className="mb-3 flex items-start justify-between">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                  ✦ Insight AI
+                </span>
+                <span className="ml-2 rounded-md bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">Baru</span>
+              </div>
+              <span className="text-3xl">🤖</span>
+            </div>
+            <div className="mb-4 space-y-2.5">
+              {topGrowth && (
+                <div className="flex gap-2 text-[12px] leading-relaxed text-slate-400">
+                  <span className="flex-shrink-0 text-emerald-400">✓</span>
+                  <span><strong className="text-slate-200">{topGrowth.name}</strong> {topGrowth.growthPct >= 0 ? "tumbuh" : "turun"} {Math.abs(topGrowth.growthPct)}% dibanding periode lalu.</span>
+                </div>
+              )}
+              {visibleAlerts.length > 0 && (
+                <div className="flex gap-2 text-[12px] leading-relaxed text-slate-400">
+                  <span className="flex-shrink-0 text-amber-400">⚠</span>
+                  <span>{visibleAlerts.length} bisnis dengan stok hampir habis. Cek segera.</span>
+                </div>
+              )}
+              <div className="flex gap-2 text-[12px] leading-relaxed text-slate-400">
+                <span className="flex-shrink-0 text-emerald-400">✓</span>
+                <span>Total {businesses.length} bisnis aktif dengan {totalOrder} order bulan ini.</span>
+              </div>
+            </div>
+            <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
+              Lihat Analisis Lengkap
+              <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
